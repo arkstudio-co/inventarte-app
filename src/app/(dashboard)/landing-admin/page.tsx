@@ -5,12 +5,13 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Badge } from '@/components/ui/Badge'
-import { Palette, Package, Eye, EyeOff, Trash2 } from 'lucide-react'
+import { Modal } from '@/components/ui/Modal'
+import { Palette, Package, Eye, EyeOff, Trash2, Plus, Pencil } from 'lucide-react'
 import type { Product, LandingProduct, ContactMessage } from '@/types/database'
 
 export default function LandingAdminPage() {
   const supabase = createClient()
-  const [tab, setTab] = useState<'products' | 'info' | 'messages'>('products')
+  const [tab, setTab] = useState<'products' | 'info' | 'messages' | 'showcase'>('products')
   const [products, setProducts] = useState<Product[]>([])
   const [landingProducts, setLandingProducts] = useState<any[]>([])
   const [messages, setMessages] = useState<ContactMessage[]>([])
@@ -21,6 +22,11 @@ export default function LandingAdminPage() {
     email: '',
     phone: '',
   })
+  const [showcaseProducts, setShowcaseProducts] = useState<any[]>([])
+  const [showcaseModalOpen, setShowcaseModalOpen] = useState(false)
+  const [editingShowcase, setEditingShowcase] = useState<any | null>(null)
+  const [showcaseForm, setShowcaseForm] = useState({ title: '', description: '', precio: 0, image_url: '', display_order: 1 })
+  const [uploading, setUploading] = useState(false)
 
   useEffect(() => {
     supabase.from('products').select('*').eq('is_active', true).then(({ data }) => {
@@ -41,7 +47,74 @@ export default function LandingAdminPage() {
         })
       }
     })
+    fetchShowcaseProducts()
   }, [])
+
+  const fetchShowcaseProducts = async () => {
+    const { data } = await supabase
+      .from('landing_products')
+      .select('*')
+      .order('display_order')
+    if (data) setShowcaseProducts(data)
+  }
+
+  const openCreateShowcase = () => {
+    setEditingShowcase(null)
+    setShowcaseForm({ title: '', description: '', precio: 0, image_url: '', display_order: showcaseProducts.length + 1 })
+    setShowcaseModalOpen(true)
+  }
+
+  const openEditShowcase = (product: any) => {
+    setEditingShowcase(product)
+    setShowcaseForm({
+      title: product.title || '',
+      description: product.description || '',
+      precio: product.precio || 0,
+      image_url: product.image_url || '',
+      display_order: product.display_order,
+    })
+    setShowcaseModalOpen(true)
+  }
+
+  const saveShowcaseProduct = async () => {
+    try {
+      const { error } = editingShowcase
+        ? await supabase.from('landing_products').update(showcaseForm).eq('id', editingShowcase.id)
+        : await supabase.from('landing_products').insert({ ...showcaseForm, is_active: true })
+
+      if (error) throw error
+
+      setShowcaseModalOpen(false)
+      fetchShowcaseProducts()
+    } catch (err: any) {
+      alert('Error: ' + (err?.message || JSON.stringify(err)))
+    }
+  }
+
+  const deleteShowcaseProduct = async (id: string) => {
+    await supabase.from('landing_products').delete().eq('id', id)
+    fetchShowcaseProducts()
+  }
+
+  const toggleShowcaseProduct = async (id: string, isActive: boolean) => {
+    await supabase.from('landing_products').update({ is_active: !isActive }).eq('id', id)
+    fetchShowcaseProducts()
+  }
+
+  const handleShowcaseImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setUploading(true)
+    const formData = new FormData()
+    formData.append('file', file)
+    const res = await fetch('/api/upload', { method: 'POST', body: formData })
+    const data = await res.json()
+    if (data.url) {
+      setShowcaseForm({ ...showcaseForm, image_url: data.url })
+    }
+    setUploading(false)
+  }
 
   const fetchLandingProducts = async () => {
     const { data } = await supabase
@@ -87,6 +160,7 @@ export default function LandingAdminPage() {
 
   const tabs = [
     { id: 'products', label: 'Productos Vitrina' },
+    { id: 'showcase', label: 'Productos Destacados' },
     { id: 'info', label: 'Información' },
     { id: 'messages', label: `Mensajes (${messages.filter(m => !m.is_read).length})` },
   ] as const
@@ -150,6 +224,98 @@ export default function LandingAdminPage() {
               ))
             )}
           </div>
+        </div>
+      )}
+
+      {tab === 'showcase' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-[var(--ink-secondary)]">Productos Destacados</h2>
+            <Button size="sm" onClick={openCreateShowcase}>
+              <Plus size={14} /> Agregar Producto
+            </Button>
+          </div>
+
+          {showcaseProducts.length === 0 ? (
+            <div className="text-sm text-[var(--ink-tertiary)]">No hay productos destacados</div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {showcaseProducts.map((p) => {
+                const title = p.title || p.products?.name || 'Sin título'
+                const price = p.precio || p.products?.price || 0
+                const imageUrl = p.image_url || p.products?.image_url || ''
+                return (
+                  <div key={p.id} className="rounded-[var(--radius-md)] bg-[var(--surface-1)] border border-[var(--border-default)] overflow-hidden">
+                    <div className="aspect-video bg-[var(--surface-2)] flex items-center justify-center overflow-hidden">
+                      {imageUrl ? (
+                        <img src={imageUrl} alt={title} className="w-full h-full object-contain p-2" />
+                      ) : (
+                        <Package size={32} className="text-[var(--ink-tertiary)]" />
+                      )}
+                    </div>
+                    <div className="p-3 space-y-2">
+                      <div className="flex items-start justify-between">
+                        <h3 className="text-sm font-medium text-[var(--ink)] truncate">{title}</h3>
+                        <Badge variant={p.is_active ? 'success' : 'default'}>{p.is_active ? 'Visible' : 'Oculto'}</Badge>
+                      </div>
+                      <p className="text-xs text-[var(--ink-tertiary)] line-clamp-2">{p.description}</p>
+                      <p className="text-sm font-bold text-[var(--tint)]">${Number(price).toLocaleString('es-CO')}</p>
+                      <p className="text-xs text-[var(--ink-muted)]">Orden: {p.display_order}</p>
+                      <div className="flex gap-1 pt-1">
+                        <button onClick={() => openEditShowcase(p)} className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-[var(--radius-sm)] bg-[var(--surface-2)] text-[var(--ink-secondary)] hover:text-[var(--tint)] cursor-pointer">
+                          <Pencil size={12} /> Editar
+                        </button>
+                        <button onClick={() => toggleShowcaseProduct(p.id, p.is_active)} className="text-xs px-2 py-1 rounded-[var(--radius-sm)] bg-[var(--surface-2)] text-[var(--ink-secondary)] hover:text-[var(--accent)] cursor-pointer">
+                          {p.is_active ? 'Ocultar' : 'Mostrar'}
+                        </button>
+                        <button onClick={() => deleteShowcaseProduct(p.id)} className="text-xs px-2 py-1 rounded-[var(--radius-sm)] bg-[var(--surface-2)] text-[var(--danger)] hover:bg-[var(--danger)] hover:text-white cursor-pointer">
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          <Modal isOpen={showcaseModalOpen} onClose={() => setShowcaseModalOpen(false)} title={editingShowcase ? 'Editar Producto' : 'Agregar Producto'}>
+            <form onSubmit={async (e) => { e.preventDefault(); await saveShowcaseProduct() }} className="space-y-4">
+              <Input label="Título" value={showcaseForm.title} onChange={(e) => setShowcaseForm({ ...showcaseForm, title: e.target.value })} required />
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-[var(--ink-secondary)]">Descripción</label>
+                <textarea
+                  className="w-full px-3 py-2 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors resize-none"
+                  rows={3}
+                  value={showcaseForm.description}
+                  onChange={(e) => setShowcaseForm({ ...showcaseForm, description: e.target.value })}
+                />
+              </div>
+              <Input label="Precio" type="number" value={showcaseForm.precio} onChange={(e) => setShowcaseForm({ ...showcaseForm, precio: Number(e.target.value) })} required />
+              <Input label="Orden" type="number" value={showcaseForm.display_order} onChange={(e) => setShowcaseForm({ ...showcaseForm, display_order: Number(e.target.value) })} required />
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-[var(--ink-secondary)]">Imagen</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleShowcaseImageUpload}
+                  className="block w-full text-sm text-[var(--ink-secondary)] file:mr-2 file:py-1 file:px-3 file:rounded-[var(--radius-sm)] file:border-0 file:text-sm file:font-medium file:bg-[var(--tint)] file:text-[var(--ink)] hover:file:bg-[var(--tint-hover)] cursor-pointer"
+                />
+                {uploading && <p className="text-xs text-[var(--ink-tertiary)]">Subiendo imagen...</p>}
+                {showcaseForm.image_url && (
+                  <div className="mt-2 w-32 h-32 rounded-[var(--radius-sm)] overflow-hidden border border-[var(--border-default)]">
+                    <img src={showcaseForm.image_url} alt="Preview" className="w-full h-full object-contain" />
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="ghost" onClick={() => setShowcaseModalOpen(false)}>Cancelar</Button>
+                <Button type="submit">{editingShowcase ? 'Guardar cambios' : 'Crear Producto'}</Button>
+              </div>
+            </form>
+          </Modal>
         </div>
       )}
 

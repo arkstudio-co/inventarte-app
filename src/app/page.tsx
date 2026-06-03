@@ -12,16 +12,36 @@ import {
   Mail,
   Phone,
   MapPin,
-  ArrowRight,
   CheckCircle,
   Globe,
 } from 'lucide-react'
 
+const fallbackProductos = [
+  {
+    imagen: '/images/1-Lecto-Escritura-Dibujarte-Productos.png',
+    titulo: 'Lecto Escritura',
+    descripcion: 'Cuaderno de actividades diseñado para fortalecer las habilidades de lectura y escritura en los primeros años escolares, con ejercicios progresivos y divertidos.',
+    precio: 25000,
+  },
+  {
+    imagen: '/images/2-Prematematicas-Dibujarte-Productos.png',
+    titulo: 'Prematemáticas',
+    descripcion: 'Material didáctico que introduce conceptos matemáticos básicos como números, formas y patrones, ideal para el desarrollo del pensamiento lógico en niños.',
+    precio: 25000,
+  },
+  {
+    imagen: '/images/3-MiCuaderno-Dibujarte-Productos.png',
+    titulo: 'Mi Cuaderno',
+    descripcion: 'Cuaderno versátil con páginas pautadas y espacio para dibujo, perfecto para tareas escolares, apuntes y proyectos creativos del día a día.',
+    precio: 25000,
+  },
+]
+
 export default function LandingPage() {
   const router = useRouter()
   const supabase = createClient()
-  const [landingProducts, setLandingProducts] = useState<any[]>([])
   const [companyInfo, setCompanyInfo] = useState<any>(null)
+  const [landingProducts, setLandingProducts] = useState<any[]>([])
   const [loginEmail, setLoginEmail] = useState('')
   const [loginPassword, setLoginPassword] = useState('')
   const [loginError, setLoginError] = useState('')
@@ -31,15 +51,11 @@ export default function LandingPage() {
   const [contactError, setContactError] = useState('')
 
   useEffect(() => {
-    supabase
-      .from('landing_products')
-      .select('*, products(*)')
-      .eq('is_active', true)
-      .order('display_order')
-      .then(({ data }) => { if (data) setLandingProducts(data) })
-
     supabase.from('company_info').select('*').single().then(({ data }) => {
       if (data) setCompanyInfo(data)
+    })
+    supabase.from('landing_products').select('*, products(*)').eq('is_active', true).order('display_order').then(({ data }) => {
+      if (data) setLandingProducts(data)
     })
   }, [])
 
@@ -161,29 +177,27 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-4">
           <h2 className="text-2xl font-bold text-[var(--ink)] mb-8 text-center">Nuestros Productos</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {landingProducts.map((lp) => (
-              <div
-                key={lp.id}
-                className="rounded-[var(--radius-md)] bg-[var(--surface-1)] border border-[var(--border-default)] overflow-hidden hover:bg-[var(--surface-2)]/50 transition-colors"
-              >
-                <div className="aspect-square bg-[var(--surface-2)] flex items-center justify-center">
-                  {lp.products?.image_url ? (
-                    <img src={lp.products.image_url} alt={lp.products.name} className="w-full h-full object-cover" />
-                  ) : (
-                    <Package size={48} className="text-[var(--ink-muted)]" />
-                  )}
+            {(landingProducts.length > 0 ? landingProducts : fallbackProductos).map((item: any, i: number) => {
+              const title = item.title || item.titulo || item.products?.name || ''
+              const description = item.description || item.descripcion || item.products?.description || ''
+              const price = item.precio || item.precio === 0 ? item.precio : item.price || 25000
+              const imageUrl = item.image_url || item.imagen || item.products?.image_url || ''
+              return (
+                <div
+                  key={item.id || i}
+                  className="rounded-[var(--radius-md)] bg-[var(--surface-1)] border border-[var(--border-default)] overflow-hidden hover:bg-[var(--surface-2)]/50 transition-colors"
+                >
+                  <div className="aspect-square bg-[var(--surface-2)] flex items-center justify-center overflow-hidden">
+                    <img src={imageUrl} alt={title} className="w-full h-full object-contain p-4" />
+                  </div>
+                  <div className="p-4 space-y-2">
+                    <h3 className="font-semibold text-[var(--ink)]">{title}</h3>
+                    <p className="text-sm text-[var(--ink-tertiary)]">{description}</p>
+                    <p className="text-lg font-bold text-[var(--tint)]">${Number(price).toLocaleString('es-CO')}</p>
+                  </div>
                 </div>
-                <div className="p-4 space-y-2">
-                  <h3 className="font-semibold text-[var(--ink)]">{lp.products?.name}</h3>
-                  {lp.products?.description && (
-                    <p className="text-sm text-[var(--ink-tertiary)] line-clamp-2">{lp.products.description}</p>
-                  )}
-                  {lp.products?.price && (
-                    <p className="text-lg font-bold text-[var(--tint)]">${lp.products.price.toLocaleString()}</p>
-                  )}
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       </section>

@@ -81,7 +81,11 @@ export interface StockWithdrawal {
 
 export interface LandingProduct {
   id: string
-  product_id: string
+  product_id: string | null
+  title: string | null
+  description: string | null
+  precio: number | null
+  image_url: string | null
   display_order: number
   is_active: boolean
   created_at: string
