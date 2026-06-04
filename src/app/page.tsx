@@ -7,6 +7,7 @@ import { loginSchema } from '@/lib/validations/auth'
 import { contactSchema } from '@/lib/validations/contact'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { CompanyCarousel } from '@/components/landing/CompanyCarousel'
 import {
   Package,
   Mail,
@@ -15,6 +16,13 @@ import {
   CheckCircle,
   Globe,
 } from 'lucide-react'
+
+const fallbackComunidad = [
+  { name: 'Colegio San José', logo_url: null },
+  { name: 'Gimnasio Campestre', logo_url: null },
+  { name: 'Colegio Anglo Americano', logo_url: null },
+  { name: 'Instituto Técnico Central', logo_url: null },
+]
 
 const fallbackProductos = [
   {
@@ -42,6 +50,8 @@ export default function LandingPage() {
   const supabase = createClient()
   const [companyInfo, setCompanyInfo] = useState<any>(null)
   const [landingProducts, setLandingProducts] = useState<any[]>([])
+  const [communityCompanies, setCommunityCompanies] = useState<any[]>([])
+  const [totalCompanyCount, setTotalCompanyCount] = useState(0)
   const [loginEmail, setLoginEmail] = useState('')
   const [loginPassword, setLoginPassword] = useState('')
   const [loginError, setLoginError] = useState('')
@@ -56,6 +66,12 @@ export default function LandingPage() {
     })
     supabase.from('landing_products').select('*, products(*)').eq('is_active', true).order('display_order').then(({ data }) => {
       if (data) setLandingProducts(data)
+    })
+    supabase.from('community_companies').select('*').eq('is_active', true).order('display_order').then(({ data }) => {
+      if (data) setCommunityCompanies(data)
+    })
+    supabase.from('community_companies').select('id', { count: 'exact', head: true }).then(({ count }) => {
+      if (count !== null) setTotalCompanyCount(count)
     })
   }, [])
 
@@ -125,7 +141,7 @@ export default function LandingPage() {
       {/* Hero */}
       <section className="max-w-6xl mx-auto px-4 py-16 lg:py-24">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
-          <div className="space-y-6">
+          <div className="space-y-6 text-center">
             <h1 className="text-4xl lg:text-5xl font-bold text-[var(--ink)] leading-tight">
               {companyInfo?.hero_title || 'Dibujarte Editores'}
             </h1>
@@ -134,7 +150,7 @@ export default function LandingPage() {
             </p>
 
             {/* Login Form inline */}
-            <form onSubmit={handleLogin} className="space-y-3 max-w-sm">
+            <form onSubmit={handleLogin} className="space-y-3 max-w-sm mx-auto">
               <Input
                 placeholder="Correo electrónico"
                 type="email"
@@ -161,6 +177,19 @@ export default function LandingPage() {
                 </a>
               </div>
             </form>
+
+            <div className="grid grid-cols-2 gap-4 pt-6 border-t border-[var(--border-subtle)] max-w-sm mx-auto">
+              <div className="text-center">
+                <p className="text-4xl lg:text-5xl font-bold text-[var(--tint)]">
+                  +{companyInfo?.founded_year ? new Date().getFullYear() - companyInfo.founded_year : 0}
+                </p>
+                <span className="text-xs text-[var(--ink-tertiary)] uppercase tracking-wide">años</span>
+              </div>
+              <div className="text-center">
+                <p className="text-4xl lg:text-5xl font-bold text-[var(--tint)]">+{totalCompanyCount}</p>
+                <span className="text-xs text-[var(--ink-tertiary)] uppercase tracking-wide">empresas</span>
+              </div>
+            </div>
           </div>
 
           <div className="aspect-[4/3] rounded-[var(--radius-lg)] bg-[var(--surface-1)] border border-[var(--border-default)] flex items-center justify-center">
@@ -229,6 +258,17 @@ export default function LandingPage() {
               <p className="text-sm text-[var(--ink-tertiary)]">Atendiendo a clientes en toda la región.</p>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Community */}
+      <section id="comunidad" className="border-t border-[var(--border-default)] py-16">
+        <div className="max-w-6xl mx-auto px-4">
+          <h2 className="text-2xl font-bold text-[var(--ink)] mb-2 text-center">{companyInfo?.community_title || 'Clientes y Colaboradores'}</h2>
+          <p className="text-sm text-[var(--ink-tertiary)] text-center mb-10">
+            {companyInfo?.community_description || 'Empresas e instituciones que confían en nuestros productos'}
+          </p>
+          <CompanyCarousel companies={communityCompanies.length > 0 ? communityCompanies : fallbackComunidad} />
         </div>
       </section>
 
@@ -324,3 +364,6 @@ export default function LandingPage() {
     </div>
   )
 }
+
+
+

@@ -140,3 +140,15 @@ SELECT 'Dibujarte Editores',
   'Somos una empresa dedicada a la distribución de materiales de arte, papelería y suministros creativos.',
   'Colegios Distritales, Universidades, Talleres de Arte, Galerías, y clientes particulares en toda Colombia.'
 WHERE NOT EXISTS (SELECT 1 FROM public.company_info);
+
+-- 6. COMUNIDAD EDUCATIVA (Empresas)
+INSERT INTO public.community_companies (name, display_order)
+SELECT * FROM (VALUES
+  ('Colegio San José', 1),
+  ('Gimnasio Campestre', 2),
+  ('Colegio Anglo Americano', 3),
+  ('Instituto Técnico Central', 4),
+  ('Liceo Cervantes', 5),
+  ('Colegio Nueva Granada', 6)
+) AS v(name, display_order)
+WHERE NOT EXISTS (SELECT 1 FROM public.community_companies);

@@ -7,11 +7,12 @@ import { Input } from '@/components/ui/Input'
 import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
 import { Palette, Package, Eye, EyeOff, Trash2, Plus, Pencil } from 'lucide-react'
-import type { Product, LandingProduct, ContactMessage } from '@/types/database'
+import type { Product, LandingProduct, ContactMessage, CommunityCompany } from '@/types/database'
 
 export default function LandingAdminPage() {
   const supabase = createClient()
-  const [tab, setTab] = useState<'products' | 'info' | 'messages' | 'showcase'>('products')
+  const [tab, setTab] = useState<'products' | 'info' | 'messages' | 'showcase' | 'community'>('products')
+  const [communityTab, setCommunityTab] = useState<'text' | 'companies'>('text')
   const [products, setProducts] = useState<Product[]>([])
   const [landingProducts, setLandingProducts] = useState<any[]>([])
   const [messages, setMessages] = useState<ContactMessage[]>([])
@@ -21,12 +22,20 @@ export default function LandingAdminPage() {
     hero_description: '',
     email: '',
     phone: '',
+    community_title: '',
+    community_description: '',
+    founded_year: '',
   })
   const [showcaseProducts, setShowcaseProducts] = useState<any[]>([])
   const [showcaseModalOpen, setShowcaseModalOpen] = useState(false)
   const [editingShowcase, setEditingShowcase] = useState<any | null>(null)
   const [showcaseForm, setShowcaseForm] = useState({ title: '', description: '', precio: 0, image_url: '', display_order: 1 })
   const [uploading, setUploading] = useState(false)
+  const [communityCompanies, setCommunityCompanies] = useState<CommunityCompany[]>([])
+  const [communityModalOpen, setCommunityModalOpen] = useState(false)
+  const [editingCommunity, setEditingCommunity] = useState<CommunityCompany | null>(null)
+  const [communityForm, setCommunityForm] = useState({ name: '', logo_url: '', display_order: 1 })
+  const [communityUploading, setCommunityUploading] = useState(false)
 
   useEffect(() => {
     supabase.from('products').select('*').eq('is_active', true).then(({ data }) => {
@@ -44,11 +53,23 @@ export default function LandingAdminPage() {
           hero_description: data.hero_description,
           email: data.email,
           phone: data.phone,
+          community_title: data.community_title || '',
+          community_description: data.community_description || '',
+          founded_year: data.founded_year?.toString() || '',
         })
       }
     })
     fetchShowcaseProducts()
+    fetchCommunityCompanies()
   }, [])
+
+  const fetchCommunityCompanies = async () => {
+    const { data } = await supabase
+      .from('community_companies')
+      .select('*')
+      .order('display_order')
+    if (data) setCommunityCompanies(data)
+  }
 
   const fetchShowcaseProducts = async () => {
     const { data } = await supabase
@@ -161,6 +182,7 @@ export default function LandingAdminPage() {
   const tabs = [
     { id: 'products', label: 'Productos Vitrina' },
     { id: 'showcase', label: 'Productos Destacados' },
+    { id: 'community', label: 'Clientes y Colaboradores' },
     { id: 'info', label: 'Información' },
     { id: 'messages', label: `Mensajes (${messages.filter(m => !m.is_read).length})` },
   ] as const
@@ -319,6 +341,193 @@ export default function LandingAdminPage() {
         </div>
       )}
 
+      {tab === 'community' && (
+        <div className="space-y-4">
+          <div className="flex gap-1 border-b border-[var(--border-default)]">
+            <button
+              onClick={() => setCommunityTab('text')}
+              className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-[1px] cursor-pointer ${
+                communityTab === 'text'
+                  ? 'text-[var(--ink)] border-[var(--tint)]'
+                  : 'text-[var(--ink-tertiary)] border-transparent hover:text-[var(--ink-secondary)]'
+              }`}
+            >
+              Título y Descripción
+            </button>
+            <button
+              onClick={() => setCommunityTab('companies')}
+              className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-[1px] cursor-pointer ${
+                communityTab === 'companies'
+                  ? 'text-[var(--ink)] border-[var(--tint)]'
+                  : 'text-[var(--ink-tertiary)] border-transparent hover:text-[var(--ink-secondary)]'
+              }`}
+            >
+              Empresas
+            </button>
+          </div>
+
+          {communityTab === 'text' && (
+            <form onSubmit={async (e) => {
+              e.preventDefault()
+              if (companyInfo) {
+                await supabase.from('company_info').update({
+                  community_title: infoForm.community_title,
+                  community_description: infoForm.community_description,
+                }).eq('id', companyInfo.id)
+                const { data } = await supabase.from('company_info').select('*').single()
+                if (data) setCompanyInfo(data)
+              }
+            }} className="max-w-lg space-y-4 rounded-[var(--radius-md)] bg-[var(--surface-1)] border border-[var(--border-default)] p-6">
+              <Input
+                label="Título de la sección"
+                value={infoForm.community_title}
+                onChange={(e) => setInfoForm({ ...infoForm, community_title: e.target.value })}
+              />
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-[var(--ink-secondary)]">Descripción</label>
+                <textarea
+                  className="w-full px-3 py-2 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors resize-none"
+                  rows={3}
+                  value={infoForm.community_description}
+                  onChange={(e) => setInfoForm({ ...infoForm, community_description: e.target.value })}
+                />
+              </div>
+              <Button type="submit">Guardar</Button>
+            </form>
+          )}
+
+          {communityTab === 'companies' && (
+            <>
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-[var(--ink-secondary)]">Empresas e Instituciones</h2>
+                <Button size="sm" onClick={() => {
+                  setEditingCommunity(null)
+                  setCommunityForm({ name: '', logo_url: '', display_order: communityCompanies.length + 1 })
+                  setCommunityModalOpen(true)
+                }}>
+                  <Plus size={14} /> Agregar Empresa
+                </Button>
+              </div>
+
+              {communityCompanies.length === 0 ? (
+                <div className="text-sm text-[var(--ink-tertiary)]">No hay empresas registradas</div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {communityCompanies.map((c) => {
+                    const initials = c.name
+                      .split(' ')
+                      .map((w) => w[0])
+                      .join('')
+                      .slice(0, 2)
+                      .toUpperCase()
+                    return (
+                      <div key={c.id} className="rounded-[var(--radius-md)] bg-[var(--surface-1)] border border-[var(--border-default)] p-4 flex items-center gap-4">
+                        <div className="w-14 h-14 rounded-[var(--radius-sm)] bg-[var(--surface-2)] flex items-center justify-center overflow-hidden shrink-0">
+                          {c.logo_url ? (
+                            <img src={c.logo_url} alt={c.name} className="w-full h-full object-contain p-1" />
+                          ) : (
+                            <span className="text-sm font-bold text-[var(--tint)]">{initials}</span>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-[var(--ink)] truncate">{c.name}</p>
+                          <p className="text-xs text-[var(--ink-muted)]">Orden: {c.display_order}</p>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Badge variant={c.is_active ? 'success' : 'default'}>{c.is_active ? 'Activo' : 'Inactivo'}</Badge>
+                          <button
+                            onClick={() => {
+                              setEditingCommunity(c)
+                              setCommunityForm({ name: c.name, logo_url: c.logo_url || '', display_order: c.display_order })
+                              setCommunityModalOpen(true)
+                            }}
+                            className="p-1.5 text-[var(--ink-tertiary)] hover:text-[var(--tint)] hover:bg-[var(--tint-light)] rounded-[var(--radius-sm)] cursor-pointer"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                          <button
+                            onClick={async () => {
+                              await supabase.from('community_companies').update({ is_active: !c.is_active }).eq('id', c.id)
+                              fetchCommunityCompanies()
+                            }}
+                            className="p-1.5 text-[var(--ink-tertiary)] hover:text-[var(--accent)] hover:bg-[var(--accent-light)] rounded-[var(--radius-sm)] cursor-pointer"
+                          >
+                            {c.is_active ? <EyeOff size={14} /> : <Eye size={14} />}
+                          </button>
+                          <button
+                            onClick={async () => {
+                              if (!confirm(`¿Eliminar ${c.name}?`)) return
+                              await supabase.from('community_companies').delete().eq('id', c.id)
+                              fetchCommunityCompanies()
+                            }}
+                            className="p-1.5 text-[var(--ink-tertiary)] hover:text-[var(--danger)] hover:bg-[var(--danger-light)] rounded-[var(--radius-sm)] cursor-pointer"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              <Modal isOpen={communityModalOpen} onClose={() => setCommunityModalOpen(false)} title={editingCommunity ? 'Editar Empresa' : 'Agregar Empresa'}>
+                <form onSubmit={async (e) => {
+                  e.preventDefault()
+                  try {
+                    const { error } = editingCommunity
+                      ? await supabase.from('community_companies').update(communityForm).eq('id', editingCommunity.id)
+                      : await supabase.from('community_companies').insert({ ...communityForm, is_active: true })
+
+                    if (error) throw error
+                    setCommunityModalOpen(false)
+                    fetchCommunityCompanies()
+                  } catch (err: any) {
+                    alert('Error: ' + (err?.message || JSON.stringify(err)))
+                  }
+                }} className="space-y-4">
+                  <Input label="Nombre de la empresa" value={communityForm.name} onChange={(e) => setCommunityForm({ ...communityForm, name: e.target.value })} required />
+                  <Input label="Orden" type="number" value={communityForm.display_order} onChange={(e) => setCommunityForm({ ...communityForm, display_order: Number(e.target.value) })} required />
+
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-[var(--ink-secondary)]">Logo</label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0]
+                        if (!file) return
+                        setCommunityUploading(true)
+                        const formData = new FormData()
+                        formData.append('file', file)
+                        const res = await fetch('/api/upload', { method: 'POST', body: formData })
+                        const data = await res.json()
+                        if (data.url) {
+                          setCommunityForm({ ...communityForm, logo_url: data.url })
+                        }
+                        setCommunityUploading(false)
+                      }}
+                      className="block w-full text-sm text-[var(--ink-secondary)] file:mr-2 file:py-1 file:px-3 file:rounded-[var(--radius-sm)] file:border-0 file:text-sm file:font-medium file:bg-[var(--tint)] file:text-[var(--ink)] hover:file:bg-[var(--tint-hover)] cursor-pointer"
+                    />
+                    {communityUploading && <p className="text-xs text-[var(--ink-tertiary)]">Subiendo logo...</p>}
+                    {communityForm.logo_url && (
+                      <div className="mt-2 w-16 h-16 rounded-[var(--radius-sm)] overflow-hidden border border-[var(--border-default)]">
+                        <img src={communityForm.logo_url} alt="Preview" className="w-full h-full object-contain" />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-2">
+                    <Button type="button" variant="ghost" onClick={() => setCommunityModalOpen(false)}>Cancelar</Button>
+                    <Button type="submit">{editingCommunity ? 'Guardar cambios' : 'Agregar Empresa'}</Button>
+                  </div>
+                </form>
+              </Modal>
+            </>
+          )}
+        </div>
+      )}
+
       {tab === 'info' && (
         <form onSubmit={saveCompanyInfo} className="max-w-lg space-y-4 rounded-[var(--radius-md)] bg-[var(--surface-1)] border border-[var(--border-default)] p-6">
           <Input label="Título del Hero" value={infoForm.hero_title} onChange={(e) => setInfoForm({ ...infoForm, hero_title: e.target.value })} />
@@ -328,6 +537,7 @@ export default function LandingAdminPage() {
           </div>
           <Input label="Correo de contacto" type="email" value={infoForm.email} onChange={(e) => setInfoForm({ ...infoForm, email: e.target.value })} />
           <Input label="Teléfono" value={infoForm.phone} onChange={(e) => setInfoForm({ ...infoForm, phone: e.target.value })} />
+          <Input label="Año de fundación" type="number" value={infoForm.founded_year} onChange={(e) => setInfoForm({ ...infoForm, founded_year: e.target.value })} />
           <Button type="submit">Guardar</Button>
         </form>
       )}

@@ -102,6 +102,16 @@ export interface ContactMessage {
   created_at: string
 }
 
+export interface CommunityCompany {
+  id: string
+  name: string
+  logo_url: string | null
+  display_order: number
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
 export interface CompanyInfo {
   id: string
   hero_title: string
@@ -112,6 +122,11 @@ export interface CompanyInfo {
   phone: string
   social_links: Record<string, string> | null
   work_history: string | null
+  community_title: string | null
+  community_description: string | null
+  experience_title: string | null
+  experience_description: string | null
+  founded_year: number | null
   created_at: string
   updated_at: string
 }
