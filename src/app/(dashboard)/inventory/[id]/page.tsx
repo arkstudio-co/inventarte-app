@@ -36,6 +36,7 @@ export default function ProductDetailPage() {
     min_stock: 0,
     price: 0,
     cost: 0,
+    suggested_price: '',
     gramaje: '',
     supplier_id: '',
     image_url: '',
@@ -58,6 +59,7 @@ export default function ProductDetailPage() {
           min_stock: product.min_stock,
           price: product.price,
           cost: product.cost,
+          suggested_price: product.suggested_price?.toString() || '',
           gramaje: product.gramaje?.toString() || '',
           supplier_id: product.supplier_id || '',
           image_url: product.image_url || '',
@@ -92,6 +94,7 @@ export default function ProductDetailPage() {
           min_stock: form.min_stock,
           price: form.price,
           cost: form.cost,
+          suggested_price: form.suggested_price ? Number(form.suggested_price) : null,
           gramaje: form.gramaje ? Number(form.gramaje) : null,
           supplier_id: form.supplier_id || null,
           image_url: form.image_url || null,
@@ -153,10 +156,13 @@ export default function ProductDetailPage() {
               <Input label="Stock mínimo" type="number" value={form.min_stock} onChange={(e) => setForm({ ...form, min_stock: Number(e.target.value) })} required />
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <Input label="Precio" type="number" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: Number(e.target.value) })} required />
-              <Input label="Costo" type="number" step="0.01" value={form.cost} onChange={(e) => setForm({ ...form, cost: Number(e.target.value) })} required />
+              <Input label="Precio venta vendedores" type="number" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: Number(e.target.value) })} required />
+              <Input label="Precio producción" type="number" step="0.01" value={form.cost} onChange={(e) => setForm({ ...form, cost: Number(e.target.value) })} required />
             </div>
-            <Input label="Gramaje (g)" type="number" step="0.01" value={form.gramaje ?? ''} onChange={(e) => setForm({ ...form, gramaje: e.target.value === '' ? '' : Number(e.target.value) })} />
+            <div className="grid grid-cols-2 gap-4">
+              <Input label="Precio sugerido mercado (opcional)" type="number" step="0.01" value={form.suggested_price ?? ''} onChange={(e) => setForm({ ...form, suggested_price: e.target.value === '' ? '' : Number(e.target.value) })} />
+              <Input label="Gramaje (g)" type="number" step="0.01" value={form.gramaje ?? ''} onChange={(e) => setForm({ ...form, gramaje: e.target.value === '' ? '' : Number(e.target.value) })} />
+            </div>
             <Select
               label="Proveedor (opcional)"
               value={form.supplier_id || ''}
@@ -226,6 +232,12 @@ export default function ProductDetailPage() {
               <label className="text-xs font-medium text-[var(--ink-tertiary)] uppercase">Costo</label>
               <p className="text-lg font-semibold text-[var(--ink)]">${product.cost.toLocaleString()}</p>
             </div>
+            {product.suggested_price && (
+              <div>
+                <label className="text-xs font-medium text-[var(--ink-tertiary)] uppercase">Precio Sugerido</label>
+                <p className="text-lg font-semibold text-[var(--ink)]">${product.suggested_price.toLocaleString()}</p>
+              </div>
+            )}
             {product.gramaje && (
               <div>
                 <label className="text-xs font-medium text-[var(--ink-tertiary)] uppercase">Gramaje</label>

@@ -8,6 +8,7 @@ import { usePermissions } from '@/hooks/usePermissions'
 import {
   LayoutDashboard,
   Package,
+  Tags,
   Users,
   Wallet,
   Settings,
@@ -19,9 +20,10 @@ import {
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'view_dashboard' },
   { href: '/inventory', label: 'Inventario', icon: Package, permission: 'view_inventory' },
+  { href: '/products', label: 'Productos', icon: Tags, permission: null },
   { href: '/users', label: 'Usuarios', icon: Users, permission: 'manage_users' },
   { href: '/wallet', label: 'Wallet', icon: Wallet, permission: null },
-  { href: '/settings', label: 'Configuración', icon: Settings, permission: null },
+  { href: '/settings', label: 'Proveedores', icon: Settings, permission: null },
   { href: '/landing-admin', label: 'Landing Admin', icon: Palette, permission: null },
 ]
 
