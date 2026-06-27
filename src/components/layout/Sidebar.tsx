@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   Package,
   Users,
+  Wallet,
   Settings,
   Palette,
   LogOut,
@@ -19,6 +20,7 @@ const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'view_dashboard' },
   { href: '/inventory', label: 'Inventario', icon: Package, permission: 'view_inventory' },
   { href: '/users', label: 'Usuarios', icon: Users, permission: 'manage_users' },
+  { href: '/wallet', label: 'Wallet', icon: Wallet, permission: null },
   { href: '/settings', label: 'Configuración', icon: Settings, permission: null },
   { href: '/landing-admin', label: 'Landing Admin', icon: Palette, permission: null },
 ]

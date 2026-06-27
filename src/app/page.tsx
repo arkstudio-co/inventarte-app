@@ -8,6 +8,7 @@ import { contactSchema } from '@/lib/validations/contact'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { CompanyCarousel } from '@/components/landing/CompanyCarousel'
+import { LandingFooter } from '@/components/landing/LandingFooter'
 import {
   Package,
   Mail,
@@ -24,32 +25,10 @@ const fallbackComunidad = [
   { name: 'Instituto Técnico Central', logo_url: null },
 ]
 
-const fallbackProductos = [
-  {
-    imagen: '/images/1-Lecto-Escritura-Dibujarte-Productos.png',
-    titulo: 'Lecto Escritura',
-    descripcion: 'Cuaderno de actividades diseñado para fortalecer las habilidades de lectura y escritura en los primeros años escolares, con ejercicios progresivos y divertidos.',
-    precio: 25000,
-  },
-  {
-    imagen: '/images/2-Prematematicas-Dibujarte-Productos.png',
-    titulo: 'Prematemáticas',
-    descripcion: 'Material didáctico que introduce conceptos matemáticos básicos como números, formas y patrones, ideal para el desarrollo del pensamiento lógico en niños.',
-    precio: 25000,
-  },
-  {
-    imagen: '/images/3-MiCuaderno-Dibujarte-Productos.png',
-    titulo: 'Mi Cuaderno',
-    descripcion: 'Cuaderno versátil con páginas pautadas y espacio para dibujo, perfecto para tareas escolares, apuntes y proyectos creativos del día a día.',
-    precio: 25000,
-  },
-]
-
 export default function LandingPage() {
   const router = useRouter()
   const supabase = createClient()
   const [companyInfo, setCompanyInfo] = useState<any>(null)
-  const [landingProducts, setLandingProducts] = useState<any[]>([])
   const [communityCompanies, setCommunityCompanies] = useState<any[]>([])
   const [totalCompanyCount, setTotalCompanyCount] = useState(0)
   const [loginEmail, setLoginEmail] = useState('')
@@ -63,9 +42,6 @@ export default function LandingPage() {
   useEffect(() => {
     supabase.from('company_info').select('*').single().then(({ data }) => {
       if (data) setCompanyInfo(data)
-    })
-    supabase.from('landing_products').select('*, products(*)').eq('is_active', true).order('display_order').then(({ data }) => {
-      if (data) setLandingProducts(data)
     })
     supabase.from('community_companies').select('*').eq('is_active', true).order('display_order').then(({ data }) => {
       if (data) setCommunityCompanies(data)
@@ -131,7 +107,6 @@ export default function LandingPage() {
             <span className="font-semibold text-[var(--ink)]">Dibujarte</span>
           </div>
           <nav className="hidden sm:flex items-center gap-6 text-sm text-[var(--ink-secondary)]">
-            <a href="#productos" className="hover:text-[var(--ink)] transition-colors">Productos</a>
             <a href="#trayectoria" className="hover:text-[var(--ink)] transition-colors">Trayectoria</a>
             <a href="#contacto" className="hover:text-[var(--ink)] transition-colors">Contacto</a>
           </nav>
@@ -197,36 +172,6 @@ export default function LandingPage() {
               <Package size={64} className="mx-auto mb-4 text-[var(--tint)]" />
               <p className="text-[var(--ink-tertiary)]">Imagen principal</p>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Products Showcase */}
-      <section id="productos" className="border-t border-[var(--border-default)] py-16">
-        <div className="max-w-6xl mx-auto px-4">
-          <h2 className="text-2xl font-bold text-[var(--ink)] mb-8 text-center">Nuestros Productos</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {(landingProducts.length > 0 ? landingProducts : fallbackProductos).map((item: any, i: number) => {
-              const title = item.title || item.titulo || item.products?.name || ''
-              const description = item.description || item.descripcion || item.products?.description || ''
-              const price = item.precio || item.precio === 0 ? item.precio : item.price || 25000
-              const imageUrl = item.image_url || item.imagen || item.products?.image_url || ''
-              return (
-                <div
-                  key={item.id || i}
-                  className="rounded-[var(--radius-md)] bg-[var(--surface-1)] border border-[var(--border-default)] overflow-hidden hover:bg-[var(--surface-2)]/50 transition-colors"
-                >
-                  <div className="aspect-square bg-[var(--surface-2)] flex items-center justify-center overflow-hidden">
-                    <img src={imageUrl} alt={title} className="w-full h-full object-contain p-4" />
-                  </div>
-                  <div className="p-4 space-y-2">
-                    <h3 className="font-semibold text-[var(--ink)]">{title}</h3>
-                    <p className="text-sm text-[var(--ink-tertiary)]">{description}</p>
-                    <p className="text-lg font-bold text-[var(--tint)]">${Number(price).toLocaleString('es-CO')}</p>
-                  </div>
-                </div>
-              )
-            })}
           </div>
         </div>
       </section>
@@ -339,28 +284,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-[var(--border-default)] py-8">
-        <div className="max-w-6xl mx-auto px-4 text-center text-sm text-[var(--ink-tertiary)]">
-          {companyInfo?.social_links && Object.keys(companyInfo.social_links).length > 0 && (
-            <div className="flex items-center justify-center gap-4 mb-4">
-              {Object.entries(companyInfo.social_links as Record<string, string>).map(([key, url]) => (
-                <a
-                  key={key}
-                  href={url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 text-[var(--ink-secondary)] hover:text-[var(--accent)] transition-colors capitalize"
-                >
-                  <Globe size={14} />
-                  {key}
-                </a>
-              ))}
-            </div>
-          )}
-          <p>&copy; {new Date().getFullYear()} Dibujarte Editores. Todos los derechos reservados.</p>
-        </div>
-      </footer>
+      <LandingFooter companyInfo={companyInfo} />
     </div>
   )
 }

@@ -112,6 +112,18 @@ export interface CommunityCompany {
   updated_at: string
 }
 
+export interface AccountPayable {
+  id: string
+  supplier_id: string | null
+  amount: number
+  description: string | null
+  due_date: string | null
+  is_paid: boolean
+  created_at: string
+  updated_at: string
+  suppliers?: Supplier | null
+}
+
 export interface CompanyInfo {
   id: string
   hero_title: string
