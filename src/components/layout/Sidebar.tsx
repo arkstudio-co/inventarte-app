@@ -4,28 +4,21 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils/cn'
 import { useAuth } from '@/providers/AuthProvider'
-import { usePermissions } from '@/hooks/usePermissions'
 import {
-  LayoutDashboard,
-  Package,
-  Tags,
-  Users,
-  UserCheck,
   Wallet,
+  Tags,
   Settings,
+  UserCheck,
   Palette,
   LogOut,
   X,
 } from 'lucide-react'
 
 const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'view_dashboard' },
-  { href: '/inventory', label: 'Inventario', icon: Package, permission: 'view_inventory' },
-  { href: '/products', label: 'Productos', icon: Tags, permission: null },
-  { href: '/colaboradores', label: 'Colaboradores', icon: UserCheck, permission: null },
-  { href: '/users', label: 'Usuarios', icon: Users, permission: 'manage_users' },
   { href: '/wallet', label: 'Wallet', icon: Wallet, permission: null },
+  { href: '/products', label: 'Productos', icon: Tags, permission: null },
   { href: '/settings', label: 'Proveedores', icon: Settings, permission: null },
+  { href: '/colaboradores', label: 'Colaboradores', icon: UserCheck, permission: null },
   { href: '/landing-admin', label: 'Landing Admin', icon: Palette, permission: null },
 ]
 
@@ -37,7 +30,6 @@ interface SidebarProps {
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname()
   const { signOut, user, profile } = useAuth()
-  const { hasPermission } = usePermissions()
 
   return (
     <>
@@ -68,7 +60,6 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
           <nav className="flex-1 space-y-1">
             {navItems.map((item) => {
-              if (item.permission && !hasPermission(item.permission)) return null
               const isActive = pathname.startsWith(item.href)
               return (
                 <Link
