@@ -15,11 +15,11 @@ import {
 } from 'lucide-react'
 
 const navItems = [
-  { href: '/wallet', label: 'Wallet', icon: Wallet, permission: null },
-  { href: '/products', label: 'Productos', icon: Tags, permission: null },
-  { href: '/settings', label: 'Proveedores', icon: Settings, permission: null },
-  { href: '/colaboradores', label: 'Colaboradores', icon: UserCheck, permission: null },
-  { href: '/landing-admin', label: 'Landing Admin', icon: Palette, permission: null },
+  { href: '/wallet', label: 'Wallet', icon: Wallet },
+  { href: '/products', label: 'Productos', icon: Tags },
+  { href: '/settings', label: 'Proveedores', icon: Settings },
+  { href: '/colaboradores', label: 'Colaboradores', icon: UserCheck },
+  { href: '/landing-admin', label: 'Landing Admin', icon: Palette },
 ]
 
 interface SidebarProps {

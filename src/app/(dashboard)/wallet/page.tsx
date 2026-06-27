@@ -13,6 +13,10 @@ import {
   CheckCircle,
   User,
   Building2,
+  ChevronDown,
+  ChevronRight,
+  Mail,
+  Phone,
 } from 'lucide-react'
 import type { Supplier, AccountPayable } from '@/types/database'
 
@@ -31,12 +35,13 @@ export default function WalletPage() {
   const [incomeTotals, setIncomeTotals] = useState(0)
   const [expenseTotals, setExpenseTotals] = useState(0)
   const [arTotals, setArTotals] = useState(0)
+  const [arExpanded, setArExpanded] = useState<Record<string, boolean>>({})
 
   const fetchAll = async () => {
     const [incomeRes, expensesRes, arRes, apRes, suppliersRes, incomeTotalRes, expenseTotalRes, arTotalRes] = await Promise.all([
       supabase.from('stock_withdrawals').select('*, products(*)').eq('delivery_type', 'paid').order('withdrawal_date', { ascending: false }).limit(10),
       supabase.from('stock_entries').select('*, products(*)').order('created_at', { ascending: false }).limit(10),
-      supabase.from('stock_withdrawals').select('*, products(*)').eq('delivery_type', 'pending').gt('pending_amount', 0).order('withdrawal_date', { ascending: false }).limit(10),
+      supabase.from('stock_withdrawals').select('*, products(*), sellers(*)').eq('delivery_type', 'pending').gt('pending_amount', 0).order('withdrawal_date', { ascending: false }).limit(10),
       supabase.from('accounts_payable').select('*, suppliers(*)').eq('is_paid', false).order('created_at', { ascending: false }),
       supabase.from('suppliers').select('*').order('name'),
       supabase.from('stock_withdrawals').select('quantity, products!inner(price)').eq('delivery_type', 'paid'),
@@ -56,6 +61,7 @@ export default function WalletPage() {
   useEffect(() => { fetchAll() }, [])
 
   const apTotal = ap.reduce((sum, a) => sum + a.amount, 0)
+  const [apShowAll, setApShowAll] = useState(false)
   const balance = incomeTotals - expenseTotals
 
   const handleCreateAp = async (e: React.FormEvent) => {
@@ -156,19 +162,53 @@ export default function WalletPage() {
             <p className="text-sm text-[var(--ink-tertiary)] py-4 text-center">No hay cuentas por cobrar</p>
           ) : (
             <div className="divide-y divide-[var(--border-subtle)]">
-              {ar.map((a) => (
-                <div key={a.id} className="py-2.5 flex items-center justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-[var(--ink)] truncate">{a.person_name}</p>
-                    <p className="text-xs text-[var(--ink-tertiary)]">
-                      {a.products?.name} • {new Date(a.withdrawal_date).toLocaleDateString('es-CO')}
-                    </p>
+              {ar.map((a) => {
+                const isExpanded = arExpanded[a.id]
+                const seller = a.sellers
+                return (
+                  <div key={a.id}>
+                    <button
+                      onClick={() => setArExpanded((prev) => ({ ...prev, [a.id]: !prev[a.id] }))}
+                      className="w-full py-2.5 flex items-center justify-between gap-2 hover:bg-[var(--surface-2)]/30 transition-colors cursor-pointer text-left"
+                    >
+                      <div className="min-w-0 flex-1 flex items-center gap-2">
+                        {isExpanded ? <ChevronDown size={14} className="text-[var(--ink-tertiary)] shrink-0" /> : <ChevronRight size={14} className="text-[var(--ink-tertiary)] shrink-0" />}
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-[var(--ink)] truncate">{seller?.name || a.person_name}</p>
+                          <p className="text-xs text-[var(--ink-tertiary)]">
+                            {a.products?.name} • {new Date(a.withdrawal_date).toLocaleDateString('es-CO')}
+                          </p>
+                        </div>
+                      </div>
+                      <p className="text-sm font-bold text-[var(--accent)] shrink-0">
+                        {formatCurrency(a.pending_amount)}
+                      </p>
+                    </button>
+                    {isExpanded && (
+                      <div className="px-4 pb-3 pt-1 space-y-1.5 text-xs text-[var(--ink-secondary)] bg-[var(--surface-0)] rounded-[var(--radius-sm)] mx-1 mb-2">
+                        {seller ? (
+                          <>
+                            <p><span className="font-medium text-[var(--ink)]">Nombre:</span> {seller.name}</p>
+                            {seller.email && <p className="flex items-center gap-1"><Mail size={12} /> {seller.email}</p>}
+                            {seller.phone && <p className="flex items-center gap-1"><Phone size={12} /> {seller.phone}</p>}
+                            {seller.notes && <p><span className="font-medium text-[var(--ink)]">Notas:</span> {seller.notes}</p>}
+                          </>
+                        ) : (
+                          <>
+                            <p><span className="font-medium text-[var(--ink)]">Nombre:</span> {a.person_name}</p>
+                            {a.person_email && <p className="flex items-center gap-1"><Mail size={12} /> {a.person_email}</p>}
+                          </>
+                        )}
+                        <p><span className="font-medium text-[var(--ink)]">Producto:</span> {a.products?.name}</p>
+                        <p><span className="font-medium text-[var(--ink)]">Cantidad:</span> {a.quantity} und</p>
+                        <p><span className="font-medium text-[var(--ink)]">Fecha de retiro:</span> {new Date(a.withdrawal_date).toLocaleDateString('es-CO')}</p>
+                        <p><span className="font-medium text-[var(--ink)]">Monto pendiente:</span> {formatCurrency(a.pending_amount)}</p>
+                        {a.observations && <p><span className="font-medium text-[var(--ink)]">Observaciones:</span> {a.observations}</p>}
+                      </div>
+                    )}
                   </div>
-                  <p className="text-sm font-bold text-[var(--accent)] shrink-0">
-                    {formatCurrency(a.pending_amount)}
-                  </p>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </SectionCard>
@@ -212,7 +252,7 @@ export default function WalletPage() {
             <p className="text-sm text-[var(--ink-tertiary)] py-4 text-center">No hay cuentas por pagar</p>
           ) : (
             <div className="divide-y divide-[var(--border-subtle)]">
-              {ap.map((a) => (
+              {(apShowAll ? ap : ap.slice(0, 2)).map((a) => (
                 <div key={a.id} className="py-2.5 flex items-center justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-[var(--ink)] truncate">{a.suppliers?.name || 'Proveedor'}</p>
@@ -240,6 +280,14 @@ export default function WalletPage() {
                   </div>
                 </div>
               ))}
+              {ap.length > 2 && (
+                <button
+                  onClick={() => setApShowAll(!apShowAll)}
+                  className="w-full py-2 text-xs text-[var(--accent)] hover:text-[var(--accent-hover)] hover:underline cursor-pointer text-center"
+                >
+                  {apShowAll ? 'Ver menos' : `Ver más (${ap.length - 2} restantes)`}
+                </button>
+              )}
             </div>
           )}
         </SectionCard>
