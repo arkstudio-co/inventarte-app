@@ -65,6 +65,35 @@ export interface StockEntry {
   created_at: string
 }
 
+export interface Seller {
+  id: string
+  name: string
+  email: string | null
+  phone: string | null
+  notes: string | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface Return {
+  id: string
+  seller_id: string
+  product_id: string
+  quantity: number
+  observations: string | null
+  created_at: string
+  products?: Product | null
+}
+
+export interface Payment {
+  id: string
+  seller_id: string
+  amount: number
+  observations: string | null
+  created_at: string
+}
+
 export interface StockWithdrawal {
   id: string
   product_id: string
@@ -77,6 +106,7 @@ export interface StockWithdrawal {
   withdrawal_date: string
   created_by: string
   created_at: string
+  seller_id: string | null
   products?: Product | null
 }
 

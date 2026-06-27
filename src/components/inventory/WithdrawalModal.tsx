@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Modal } from '@/components/ui/Modal'
-import type { Product } from '@/types/database'
+import type { Product, Seller } from '@/types/database'
 
 interface WithdrawalModalProps {
   productId: string
@@ -18,6 +18,7 @@ interface WithdrawalModalProps {
 export function WithdrawalModal({ productId, onClose, onSuccess }: WithdrawalModalProps) {
   const supabase = createClient()
   const [product, setProduct] = useState<Product | null>(null)
+  const [sellers, setSellers] = useState<Seller[]>([])
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
@@ -30,12 +31,25 @@ export function WithdrawalModal({ productId, onClose, onSuccess }: WithdrawalMod
     pending_amount: undefined,
     observations: '',
   })
+  const [sellerId, setSellerId] = useState('')
 
   useEffect(() => {
-    supabase.from('products').select('*').eq('id', productId).single().then(({ data }) => {
-      if (data) setProduct(data)
+    Promise.all([
+      supabase.from('products').select('*').eq('id', productId).single(),
+      supabase.from('sellers').select('*').eq('is_active', true).order('name'),
+    ]).then(([productRes, sellersRes]) => {
+      if (productRes.data) setProduct(productRes.data)
+      if (sellersRes.data) setSellers(sellersRes.data)
     })
   }, [productId])
+
+  const handleSellerChange = (id: string) => {
+    setSellerId(id)
+    const seller = sellers.find((s) => s.id === id)
+    if (seller) {
+      setForm({ ...form, person_name: seller.name, person_email: seller.email || '' })
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -65,6 +79,7 @@ export function WithdrawalModal({ productId, onClose, onSuccess }: WithdrawalMod
         delivery_type: form.delivery_type,
         pending_amount: form.delivery_type === 'pending' ? form.pending_amount : null,
         observations: form.delivery_type === 'pending' ? form.observations : null,
+        seller_id: sellerId || null,
       }),
     })
 
@@ -97,6 +112,18 @@ export function WithdrawalModal({ productId, onClose, onSuccess }: WithdrawalMod
           onChange={(e) => setForm({ ...form, quantity: Number(e.target.value) })}
           required
         />
+
+        {sellers.length > 0 && (
+          <Select
+            id="seller"
+            label="Colaborador (opcional)"
+            value={sellerId}
+            onChange={(e) => handleSellerChange(e.target.value)}
+            options={sellers.map((s) => ({ value: s.id, label: s.name }))}
+            placeholder="Seleccionar colaborador"
+          />
+        )}
+
         <Input
           id="person_name"
           label="Nombre de la persona"

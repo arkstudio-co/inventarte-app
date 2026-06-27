@@ -17,6 +17,7 @@ export async function POST(request: Request) {
     delivery_type: body.delivery_type,
     pending_amount: body.delivery_type === 'pending' ? body.pending_amount : null,
     observations: body.delivery_type === 'pending' ? body.observations : null,
+    seller_id: body.seller_id || null,
     withdrawal_date: new Date().toISOString(),
     created_by: user.id,
   }).select()
