@@ -496,21 +496,25 @@ function RegisterReturnModal({ sellerId, products, onRegistered }: { sellerId: s
 function RegisterPaymentModal({ sellerId, onRegistered }: { sellerId: string; onRegistered: () => void }) {
   const supabase = createClient()
   const [open, setOpen] = useState(false)
-  const [form, setForm] = useState({ amount: 0, observations: '' })
+  const [form, setForm] = useState({ amount: 0, observations: '', payment_method: 'cash' as 'cash' | 'transfer', bank_account: '', card_last_four: '' })
   const [saving, setSaving] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (form.amount <= 0) return
+    if (form.payment_method === 'transfer' && (!form.bank_account.trim() || form.card_last_four.length !== 4)) return
     setSaving(true)
     await supabase.from('payments').insert({
       seller_id: sellerId,
       amount: form.amount,
+      payment_method: form.payment_method,
+      bank_account: form.payment_method === 'transfer' ? form.bank_account.trim() : null,
+      card_last_four: form.payment_method === 'transfer' ? form.card_last_four : null,
       observations: form.observations || null,
     })
     setSaving(false)
     setOpen(false)
-    setForm({ amount: 0, observations: '' })
+    setForm({ amount: 0, observations: '', payment_method: 'cash', bank_account: '', card_last_four: '' })
     onRegistered()
   }
 
@@ -525,6 +529,26 @@ function RegisterPaymentModal({ sellerId, onRegistered }: { sellerId: string; on
       <Modal isOpen={open} onClose={() => setOpen(false)} title="Registrar Pago">
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input label="Monto" type="number" step="0.01" min={1} value={form.amount} onChange={(e) => setForm({ ...form, amount: Number(e.target.value) })} required />
+
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-[var(--ink-secondary)]">Método de pago</label>
+            <select
+              value={form.payment_method}
+              onChange={(e) => setForm({ ...form, payment_method: e.target.value as 'cash' | 'transfer' })}
+              className="w-full px-3 py-2 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+            >
+              <option value="cash">Efectivo</option>
+              <option value="transfer">Transferencia</option>
+            </select>
+          </div>
+
+          {form.payment_method === 'transfer' && (
+            <>
+              <Input label="Cuenta bancaria" value={form.bank_account} onChange={(e) => setForm({ ...form, bank_account: e.target.value })} required />
+              <Input label="Últimos 4 dígitos de la tarjeta" value={form.card_last_four} onChange={(e) => setForm({ ...form, card_last_four: e.target.value.slice(0, 4) })} maxLength={4} required />
+            </>
+          )}
+
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-[var(--ink-secondary)]">Observaciones</label>
             <textarea

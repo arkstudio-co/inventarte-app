@@ -60,6 +60,7 @@ export interface StockEntry {
   id: string
   product_id: string
   quantity: number
+  payment_status: 'paid' | 'pending'
   observations: string | null
   created_by: string
   created_at: string
@@ -90,6 +91,9 @@ export interface Payment {
   id: string
   seller_id: string
   amount: number
+  payment_method: 'cash' | 'transfer'
+  bank_account: string | null
+  card_last_four: string | null
   observations: string | null
   created_at: string
 }

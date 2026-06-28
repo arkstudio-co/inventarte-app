@@ -27,6 +27,7 @@ export default function ProductDetailPage() {
   const [showStockEntry, setShowStockEntry] = useState(false)
   const [entryQuantity, setEntryQuantity] = useState(1)
   const [entryObservations, setEntryObservations] = useState('')
+  const [entryPaymentStatus, setEntryPaymentStatus] = useState<'paid' | 'pending'>('pending')
   const [isAddingStock, setIsAddingStock] = useState(false)
 
   const [form, setForm] = useState<ProductFormData>({
@@ -278,6 +279,7 @@ export default function ProductDetailPage() {
           await supabase.from('stock_entries').insert({
             product_id: product.id,
             quantity: entryQuantity,
+            payment_status: entryPaymentStatus,
             observations: entryObservations || null,
             created_by: user.id,
           })
@@ -301,6 +303,17 @@ export default function ProductDetailPage() {
             required
           />
           <div className="space-y-1.5">
+            <label className="text-sm font-medium text-[var(--ink-secondary)]">Estado de pago</label>
+            <select
+              value={entryPaymentStatus}
+              onChange={(e) => setEntryPaymentStatus(e.target.value as 'paid' | 'pending')}
+              className="w-full px-3 py-2 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+            >
+              <option value="pending">Pendiente</option>
+              <option value="paid">Pagado</option>
+            </select>
+          </div>
+          <div className="space-y-1.5">
             <label className="text-sm font-medium text-[var(--ink-secondary)]">Observaciones</label>
             <textarea
               className="w-full px-3 py-2 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors resize-none"
@@ -310,7 +323,7 @@ export default function ProductDetailPage() {
             />
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="secondary" onClick={() => setShowStockEntry(false)}>Cancelar</Button>
+            <Button type="button" variant="secondary" onClick={() => { setShowStockEntry(false); setEntryPaymentStatus('pending') }}>Cancelar</Button>
             <Button type="submit" disabled={isAddingStock}>
               {isAddingStock ? 'Añadiendo...' : 'Añadir Stock'}
             </Button>

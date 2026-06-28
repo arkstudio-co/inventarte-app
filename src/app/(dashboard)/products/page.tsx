@@ -13,7 +13,7 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [modalOpen, setModalOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
-  const [form, setForm] = useState<{ name: string; cost: number; price: number; suggested_price: number | string }>({ name: '', cost: 0, price: 0, suggested_price: '' })
+  const [form, setForm] = useState<{ name: string; cost: number; price: number; suggested_price: number | string; stock: number; min_stock: number }>({ name: '', cost: 0, price: 0, suggested_price: '', stock: 0, min_stock: 0 })
   const [saving, setSaving] = useState(false)
 
   const fetchProducts = async () => {
@@ -25,7 +25,7 @@ export default function ProductsPage() {
 
   const openCreate = () => {
     setEditingProduct(null)
-    setForm({ name: '', cost: 0, price: 0, suggested_price: '' })
+    setForm({ name: '', cost: 0, price: 0, suggested_price: '', stock: 0, min_stock: 0 })
     setModalOpen(true)
   }
 
@@ -36,6 +36,8 @@ export default function ProductsPage() {
       cost: p.cost,
       price: p.price,
       suggested_price: p.suggested_price?.toString() || '',
+      stock: p.stock,
+      min_stock: p.min_stock,
     })
     setModalOpen(true)
   }
@@ -50,6 +52,8 @@ export default function ProductsPage() {
       cost: form.cost,
       price: form.price,
       suggested_price: form.suggested_price ? Number(form.suggested_price) : null,
+      stock: form.stock,
+      min_stock: form.min_stock,
     }
 
     if (editingProduct) {
@@ -60,8 +64,6 @@ export default function ProductsPage() {
         await supabase.from('products').insert({
           ...payload,
           sku: 'PROD-' + Date.now(),
-          stock: 0,
-          min_stock: 0,
           created_by: user.id,
         })
       }
@@ -101,9 +103,10 @@ export default function ProductsPage() {
         <div className="space-y-2">
           {products.map((p) => (
             <div key={p.id} className="rounded-[var(--radius-md)] bg-[var(--surface-1)] border border-[var(--border-default)] p-4 flex items-center justify-between gap-4">
-              <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-4 gap-2">
-                <div className="sm:col-span-1">
+              <div className="flex-1 min-w-0 grid grid-cols-2 sm:grid-cols-6 gap-2">
+                <div className="col-span-2 sm:col-span-1">
                   <p className="text-sm font-medium text-[var(--ink)] truncate">{p.name}</p>
+                  <p className="text-xs text-[var(--ink-muted)] font-mono">{p.sku}</p>
                 </div>
                 <div>
                   <p className="text-xs text-[var(--ink-tertiary)] uppercase">Producción</p>
@@ -118,6 +121,19 @@ export default function ProductsPage() {
                   <p className="text-sm font-semibold text-[var(--accent)]">
                     {p.suggested_price ? formatCurrency(p.suggested_price) : '—'}
                   </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div>
+                    <p className="text-xs text-[var(--ink-tertiary)] uppercase">Stock</p>
+                    <span className={`inline-flex items-center gap-1 text-sm font-semibold ${p.stock <= p.min_stock ? 'text-[var(--danger)]' : 'text-[var(--success)]'}`}>
+                      <span className={`w-2 h-2 rounded-full ${p.stock <= p.min_stock ? 'bg-[var(--danger)]' : 'bg-[var(--success)]'}`} />
+                      {p.stock} uds
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-xs text-[var(--ink-tertiary)] uppercase">Min</p>
+                    <p className="text-sm font-semibold text-[var(--ink-secondary)]">{p.min_stock}</p>
+                  </div>
                 </div>
               </div>
               <div className="flex items-center gap-1 shrink-0">
@@ -166,6 +182,24 @@ export default function ProductsPage() {
             value={form.suggested_price}
             onChange={(e) => setForm({ ...form, suggested_price: e.target.value === '' ? '' : Number(e.target.value) })}
           />
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Stock"
+              type="number"
+              min={0}
+              value={form.stock}
+              onChange={(e) => setForm({ ...form, stock: Number(e.target.value) })}
+              required
+            />
+            <Input
+              label="Stock mínimo"
+              type="number"
+              min={0}
+              value={form.min_stock}
+              onChange={(e) => setForm({ ...form, min_stock: Number(e.target.value) })}
+              required
+            />
+          </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="ghost" onClick={() => setModalOpen(false)}>Cancelar</Button>
             <Button type="submit" disabled={saving}>

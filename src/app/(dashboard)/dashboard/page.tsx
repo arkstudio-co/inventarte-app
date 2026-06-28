@@ -63,10 +63,11 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const fetchData = async () => {
-      const [{ data: products }, { data: suppliers }, { data: withdrawals }] = await Promise.all([
+      const [{ data: products }, { data: suppliers }, { data: withdrawals }, { data: payments }] = await Promise.all([
         supabase.from('products').select('*, suppliers(*)'),
         supabase.from('suppliers').select('id, name'),
         supabase.from('stock_withdrawals').select('delivery_type, pending_amount, created_at'),
+        supabase.from('payments').select('amount'),
       ])
 
       if (products) setProducts(products)
@@ -84,8 +85,10 @@ export default function DashboardPage() {
           .filter((w) => w.delivery_type === 'pending')
           .reduce((sum, w) => sum + (w.pending_amount || 0), 0)
 
+        const paymentsTotal = payments?.reduce((sum: number, p: any) => sum + p.amount, 0) || 0
+
         setMonthlySales(monthlyPaid)
-        setSellerDebt(debt)
+        setSellerDebt(Math.max(0, debt - paymentsTotal))
       }
     }
     fetchData()

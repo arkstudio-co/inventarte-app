@@ -36,9 +36,10 @@ export default function WalletPage() {
   const [expenseTotals, setExpenseTotals] = useState(0)
   const [arTotals, setArTotals] = useState(0)
   const [arExpanded, setArExpanded] = useState<Record<string, boolean>>({})
+  const [paymentsTotal, setPaymentsTotal] = useState(0)
 
   const fetchAll = async () => {
-    const [incomeRes, expensesRes, arRes, apRes, suppliersRes, incomeTotalRes, expenseTotalRes, arTotalRes] = await Promise.all([
+    const [incomeRes, expensesRes, arRes, apRes, suppliersRes, incomeTotalRes, expenseTotalRes, arTotalRes, paymentsRes] = await Promise.all([
       supabase.from('stock_withdrawals').select('*, products(*)').eq('delivery_type', 'paid').order('withdrawal_date', { ascending: false }).limit(10),
       supabase.from('stock_entries').select('*, products(*)').order('created_at', { ascending: false }).limit(10),
       supabase.from('stock_withdrawals').select('*, products(*), sellers(*)').eq('delivery_type', 'pending').gt('pending_amount', 0).order('withdrawal_date', { ascending: false }).limit(10),
@@ -47,6 +48,7 @@ export default function WalletPage() {
       supabase.from('stock_withdrawals').select('quantity, products!inner(price)').eq('delivery_type', 'paid'),
       supabase.from('stock_entries').select('quantity, products!inner(cost)'),
       supabase.from('stock_withdrawals').select('pending_amount').eq('delivery_type', 'pending').gt('pending_amount', 0),
+      supabase.from('payments').select('amount'),
     ])
     if (incomeRes.data) setIncome(incomeRes.data)
     if (expensesRes.data) setExpenses(expensesRes.data)
@@ -56,13 +58,15 @@ export default function WalletPage() {
     if (incomeTotalRes.data) setIncomeTotals(incomeTotalRes.data.reduce((s, i: any) => s + (i.quantity * (i.products?.price || 0)), 0))
     if (expenseTotalRes.data) setExpenseTotals(expenseTotalRes.data.reduce((s, e: any) => s + (e.quantity * (e.products?.cost || 0)), 0))
     if (arTotalRes.data) setArTotals(arTotalRes.data.reduce((s, a: any) => s + (a.pending_amount || 0), 0))
+    if (paymentsRes.data) setPaymentsTotal(paymentsRes.data.reduce((s: number, p: any) => s + p.amount, 0))
   }
 
   useEffect(() => { fetchAll() }, [])
 
   const apTotal = ap.reduce((sum, a) => sum + a.amount, 0)
   const [apShowAll, setApShowAll] = useState(false)
-  const balance = incomeTotals - expenseTotals
+  const netArTotals = Math.max(0, arTotals - paymentsTotal)
+  const balance = incomeTotals + paymentsTotal - expenseTotals
 
   const handleCreateAp = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -102,7 +106,7 @@ export default function WalletPage() {
             <p className="text-xs text-[var(--ink-tertiary)] uppercase tracking-wide flex items-center gap-1 mb-1">
               <TrendingUp size={14} className="text-[var(--success)]" /> Ingresos
             </p>
-            <p className="text-lg font-bold text-[var(--success)]">{formatCurrency(incomeTotals)}</p>
+            <p className="text-lg font-bold text-[var(--success)]">{formatCurrency(incomeTotals + paymentsTotal)}</p>
           </div>
           <div>
             <p className="text-xs text-[var(--ink-tertiary)] uppercase tracking-wide flex items-center gap-1 mb-1">
@@ -114,7 +118,7 @@ export default function WalletPage() {
             <p className="text-xs text-[var(--ink-tertiary)] uppercase tracking-wide flex items-center gap-1 mb-1">
               <User size={14} className="text-[var(--accent)]" /> Por Cobrar
             </p>
-            <p className="text-lg font-bold text-[var(--accent)]">{formatCurrency(arTotals)}</p>
+            <p className="text-lg font-bold text-[var(--accent)]">{formatCurrency(netArTotals)}</p>
           </div>
           <div>
             <p className="text-xs text-[var(--ink-tertiary)] uppercase tracking-wide flex items-center gap-1 mb-1">
@@ -136,7 +140,7 @@ export default function WalletPage() {
       {/* Income + AR */}
       <div className="grid lg:grid-cols-2 gap-4">
         <SectionCard title="Ingresos" icon={TrendingUp} iconColor="text-[var(--success)]">
-          {income.length === 0 ? (
+          {income.length === 0 && paymentsTotal === 0 ? (
             <p className="text-sm text-[var(--ink-tertiary)] py-4 text-center">No hay ingresos registrados</p>
           ) : (
             <div className="divide-y divide-[var(--border-subtle)]">
@@ -153,6 +157,16 @@ export default function WalletPage() {
                   </p>
                 </div>
               ))}
+              {paymentsTotal > 0 && (
+                <div className="py-2.5 flex items-center justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-[var(--ink)] truncate">Pagos recibidos de vendedores</p>
+                  </div>
+                  <p className="text-sm font-bold text-[var(--success)] shrink-0">
+                    +{formatCurrency(paymentsTotal)}
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </SectionCard>
