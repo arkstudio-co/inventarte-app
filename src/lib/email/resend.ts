@@ -1,8 +1,19 @@
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY!)
-
 const FROM_EMAIL = 'Dibujarte <onboarding@resend.dev>'
+
+let resendInstance: Resend | null = null
+
+function getResend() {
+  if (!resendInstance) {
+    const apiKey = process.env.RESEND_API_KEY
+    if (!apiKey) {
+      throw new Error('RESEND_API_KEY is not configured')
+    }
+    resendInstance = new Resend(apiKey)
+  }
+  return resendInstance
+}
 
 export async function sendWithdrawalEmail({
   to,
@@ -17,7 +28,7 @@ export async function sendWithdrawalEmail({
   pendingAmount?: number | null
   observations?: string | null
 }) {
-  return resend.emails.send({
+  return getResend().emails.send({
     from: FROM_EMAIL,
     to,
     subject: 'Retiro de Stock - Dibujarte',
@@ -38,7 +49,7 @@ export async function sendWithdrawalEmail({
 }
 
 export async function sendPasswordReset(email: string, resetLink: string) {
-  return resend.emails.send({
+  return getResend().emails.send({
     from: FROM_EMAIL,
     to: email,
     subject: 'Recuperación de Contraseña - Dibujarte',
