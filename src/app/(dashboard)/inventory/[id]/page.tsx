@@ -31,6 +31,7 @@ export default function ProductDetailPage() {
   const [isAddingStock, setIsAddingStock] = useState(false)
   const [showInlineAddStock, setShowInlineAddStock] = useState(false)
   const [inlineAddQty, setInlineAddQty] = useState(1)
+  const [suggestedPrice, setSuggestedPrice] = useState('')
 
   const handleInlineAddStock = async () => {
     if (inlineAddQty < 1) return
@@ -85,6 +86,7 @@ export default function ProductDetailPage() {
           supplier_id: product.supplier_id || '',
           image_url: product.image_url || '',
         })
+        setSuggestedPrice((product as any).suggested_price?.toString() || '')
       }
 
       const { data: suppliers } = await supabase.from('suppliers').select('*')
@@ -115,6 +117,7 @@ export default function ProductDetailPage() {
           min_stock: form.min_stock,
           price: form.price,
           cost: form.cost,
+          suggested_price: suggestedPrice ? Number(suggestedPrice) : null,
           gramaje: form.gramaje ? Number(form.gramaje) : null,
           supplier_id: form.supplier_id || null,
           image_url: form.image_url || null,
@@ -149,11 +152,6 @@ export default function ProductDetailPage() {
         </div>
 
         <div className="rounded-[var(--radius-md)] bg-[var(--surface-1)] border border-[var(--border-default)] p-6">
-          <div className="mb-4 p-3 rounded-[var(--radius-sm)] bg-[var(--surface-0)] border border-[var(--border-subtle)]">
-            <label className="text-xs font-medium text-[var(--ink-tertiary)] uppercase tracking-wide">SKU</label>
-            <p className="text-sm font-mono text-[var(--ink)] mt-1">{product.sku}</p>
-          </div>
-
           <form onSubmit={handleSave} className="space-y-4">
             <Input
               id="name"
@@ -162,34 +160,23 @@ export default function ProductDetailPage() {
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               required
             />
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--ink-secondary)]">Descripción</label>
-              <textarea
-                className="w-full px-3 py-2 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors resize-none"
-                rows={3}
-                value={form.description || ''}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-              />
-            </div>
+
+            <p className="text-xs text-[var(--ink-tertiary)] font-mono">{product.sku}</p>
+
             <div className="grid grid-cols-2 gap-4">
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center justify-between">
                   <label className="text-sm font-medium text-[var(--ink-secondary)]">Stock</label>
                   <button
+                    type="button"
                     onClick={() => setShowInlineAddStock(true)}
-                    className="p-0.5 text-[var(--accent)] hover:text-[var(--accent-hover)] hover:bg-[var(--accent-light)] rounded-[var(--radius-sm)] transition-colors cursor-pointer"
+                    className="w-6 h-6 flex items-center justify-center text-white bg-[var(--accent)] hover:opacity-90 rounded-[var(--radius-sm)] transition-opacity cursor-pointer"
                     title="Añadir stock"
                   >
                     <Plus size={14} />
                   </button>
                 </div>
-                <input
-                  type="number"
-                  value={form.stock}
-                  onChange={(e) => setForm({ ...form, stock: Number(e.target.value) })}
-                  className="w-full px-3 py-2 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-1)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors"
-                  required
-                />
+                <p className="text-sm font-semibold text-[var(--ink)]">{form.stock}</p>
                 {showInlineAddStock && (
                   <div className="flex items-center gap-2">
                     <input
@@ -200,6 +187,7 @@ export default function ProductDetailPage() {
                       className="w-20 px-2 py-1 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors"
                     />
                     <button
+                      type="button"
                       onClick={handleInlineAddStock}
                       className="flex items-center justify-center w-6 h-6 text-xs font-bold text-white bg-[var(--accent)] rounded-[var(--radius-sm)] hover:opacity-90 transition-opacity cursor-pointer"
                     >
@@ -210,18 +198,40 @@ export default function ProductDetailPage() {
               </div>
               <Input label="Stock mínimo" type="number" value={form.min_stock} onChange={(e) => setForm({ ...form, min_stock: Number(e.target.value) })} required />
             </div>
+
             <div className="grid grid-cols-2 gap-4">
-              <Input label="Precio venta vendedores" type="number" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: Number(e.target.value) })} required />
               <Input label="Precio producción" type="number" step="0.01" value={form.cost} onChange={(e) => setForm({ ...form, cost: Number(e.target.value) })} required />
+              <Input label="Precio venta vendedores" type="number" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: Number(e.target.value) })} required />
             </div>
-            <Input label="Gramaje (g)" type="number" step="0.01" value={form.gramaje ?? ''} onChange={(e) => setForm({ ...form, gramaje: e.target.value === '' ? '' : Number(e.target.value) })} />
+
+            <Input
+              label="Precio sugerido mercado (opcional)"
+              type="number"
+              step="0.01"
+              value={suggestedPrice}
+              onChange={(e) => setSuggestedPrice(e.target.value === '' ? '' : e.target.value)}
+            />
+
             <Select
-              label="Proveedor (opcional)"
+              label="Proveedor"
               value={form.supplier_id || ''}
               onChange={(e) => setForm({ ...form, supplier_id: e.target.value })}
               options={suppliers.map((s) => ({ value: s.id, label: s.name }))}
               placeholder="Seleccionar"
             />
+
+            <Input label="Gramaje (g)" type="number" step="0.01" value={form.gramaje ?? ''} onChange={(e) => setForm({ ...form, gramaje: e.target.value === '' ? '' : Number(e.target.value) })} />
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-[var(--ink-secondary)]">Observación</label>
+              <textarea
+                className="w-full px-3 py-2 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors resize-none"
+                rows={3}
+                value={form.description || ''}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+              />
+            </div>
+
             {error && <div className="text-sm text-[var(--danger)] bg-[var(--danger-light)] px-3 py-2 rounded-[var(--radius-sm)]">{error}</div>}
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="secondary" onClick={() => router.back()}>Cancelar</Button>
@@ -284,6 +294,12 @@ export default function ProductDetailPage() {
               <label className="text-xs font-medium text-[var(--ink-tertiary)] uppercase">Costo</label>
               <p className="text-lg font-semibold text-[var(--ink)]">${product.cost.toLocaleString()}</p>
             </div>
+            {(product as any).suggested_price && (
+              <div>
+                <label className="text-xs font-medium text-[var(--ink-tertiary)] uppercase">Precio Sugerido</label>
+                <p className="text-lg font-semibold text-[var(--ink)]">${(product as any).suggested_price.toLocaleString()}</p>
+              </div>
+            )}
             {product.gramaje && (
               <div>
                 <label className="text-xs font-medium text-[var(--ink-tertiary)] uppercase">Gramaje</label>
