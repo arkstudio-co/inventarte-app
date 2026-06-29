@@ -514,39 +514,15 @@ export default function WalletPage() {
             <span className="text-[var(--ink-secondary)]">Gastos Administrativos</span>
             <span className="font-semibold text-[var(--warning)]">{formatCurrency(adminExpenseTotals)}</span>
           </div>
-          {apTotal > 0 && (
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-[var(--ink-secondary)]">Cuentas por Pagar</span>
-              <span className="font-semibold text-[var(--warning)]">{formatCurrency(apTotal)}</span>
-            </div>
-          )}
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-[var(--ink-secondary)]">Deuda</span>
+            <span className="font-semibold text-[var(--warning)]">{formatCurrency(apTotal)}</span>
+          </div>
           <div className="flex items-center justify-between text-sm font-semibold pt-1 border-t border-[var(--border-subtle)]">
             <span className="text-[var(--ink)]">Total Gastos</span>
             <span className="text-[var(--ink)]">{formatCurrency(gastosTotal)}</span>
           </div>
         </div>
-
-        {/* Gastos Operativos (Inventario) detail */}
-        {expenses.length > 0 && (
-          <div className="pt-3">
-            <p className="text-xs font-semibold text-[var(--ink-tertiary)] uppercase tracking-wide mb-2">Gastos Operativos (Inventario)</p>
-            <div className="divide-y divide-[var(--border-subtle)]">
-              {expenses.slice(0, adminShowAll ? undefined : 2).map((e) => (
-                <div key={e.id} className="py-2 flex items-center justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-[var(--ink)] truncate">{e.products?.name || 'Sin producto'}</p>
-                    <p className="text-xs text-[var(--ink-tertiary)]">
-                      {e.quantity} und • {e.observations || '—'} • {new Date(e.created_at).toLocaleDateString('es-CO')}
-                    </p>
-                  </div>
-                  <p className="text-sm font-bold text-[var(--danger)] shrink-0">
-                    -{formatCurrency(e.quantity * (e.products?.cost || 0))}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* Gastos Administrativos detail */}
         {adminExpenses.length > 0 && (
@@ -577,7 +553,7 @@ export default function WalletPage() {
           </div>
         )}
 
-        {/* Cuentas por Pagar detail */}
+        {/* Deuda detail */}
         {ap.length > 0 && (
           <div className="pt-3">
             <p className="text-xs font-semibold text-[var(--ink-tertiary)] uppercase tracking-wide mb-2">Cuentas por Pagar</p>
@@ -615,7 +591,7 @@ export default function WalletPage() {
         )}
 
         {/* Show more toggle */}
-        {(expenses.length > 2 || adminExpenses.length > 2 || ap.length > 2) && (
+        {(adminExpenses.length > 2 || ap.length > 2) && (
           <button
             onClick={() => setAdminShowAll(!adminShowAll)}
             className="w-full mt-2 py-2 text-xs text-[var(--accent)] hover:text-[var(--accent-hover)] hover:underline cursor-pointer text-center"
@@ -624,7 +600,7 @@ export default function WalletPage() {
           </button>
         )}
 
-        {expenses.length === 0 && adminExpenses.length === 0 && ap.length === 0 && (
+        {adminExpenses.length === 0 && ap.length === 0 && (
           <p className="text-sm text-[var(--ink-tertiary)] py-4 text-center">No hay gastos registrados</p>
         )}
       </SectionCard>
