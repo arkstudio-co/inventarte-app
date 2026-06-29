@@ -146,6 +146,32 @@ export interface CommunityCompany {
   updated_at: string
 }
 
+export interface Remision {
+  id: string
+  remision_number: string
+  seller_id: string
+  person_name: string
+  person_email: string | null
+  delivery_type: 'paid' | 'pending'
+  total_amount: number
+  notes: string | null
+  created_by: string
+  created_at: string
+  sellers?: Seller | null
+  remision_items?: RemisionItem[]
+}
+
+export interface RemisionItem {
+  id: string
+  remision_id: string
+  product_id: string
+  product_name: string
+  quantity: number
+  unit_price: number
+  subtotal: number
+  products?: Product | null
+}
+
 export interface AccountPayable {
   id: string
   supplier_id: string | null

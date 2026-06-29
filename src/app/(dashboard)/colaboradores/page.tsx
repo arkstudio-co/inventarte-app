@@ -1,12 +1,13 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
-import { Plus, UserCheck, Package, Undo2, DollarSign, Pencil, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
-import type { Seller, StockWithdrawal, Return, Payment, Product } from '@/types/database'
+import { Plus, UserCheck, Package, Undo2, DollarSign, FileText, ExternalLink, Pencil, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
+import type { Seller, StockWithdrawal, Return, Payment, Product, Remision } from '@/types/database'
 
 export default function ColaboradoresPage() {
   const supabase = createClient()
@@ -64,22 +65,26 @@ function SellerCard({ seller, products, onUpdate }: {
   onUpdate: () => void
 }) {
   const supabase = createClient()
+  const router = useRouter()
   const [expanded, setExpanded] = useState(false)
   const [withdrawals, setWithdrawals] = useState<any[]>([])
   const [returns, setReturns] = useState<any[]>([])
   const [payments, setPayments] = useState<any[]>([])
+  const [remisiones, setRemisiones] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
 
   const fetchDetails = async () => {
     setLoading(true)
-    const [wRes, rRes, pRes] = await Promise.all([
+    const [wRes, rRes, pRes, remRes] = await Promise.all([
       supabase.from('stock_withdrawals').select('*, products(*)').eq('seller_id', seller.id).order('withdrawal_date', { ascending: false }),
       supabase.from('returns').select('*, products(*)').eq('seller_id', seller.id).order('created_at', { ascending: false }),
       supabase.from('payments').select('*').eq('seller_id', seller.id).order('created_at', { ascending: false }),
+      supabase.from('remisiones').select('*').eq('seller_id', seller.id).order('created_at', { ascending: false }),
     ])
     if (wRes.data) setWithdrawals(wRes.data)
     if (rRes.data) setReturns(rRes.data)
     if (pRes.data) setPayments(pRes.data)
+    if (remRes.data) setRemisiones(remRes.data)
     setLoading(false)
   }
 
@@ -148,7 +153,32 @@ function SellerCard({ seller, products, onUpdate }: {
                 </button>
               </div>
 
-              <div className="grid lg:grid-cols-3 gap-4">
+              <div className="grid lg:grid-cols-4 gap-4">
+                <div>
+                  <h4 className="text-xs font-semibold text-[var(--ink-tertiary)] uppercase mb-2 flex items-center gap-1">
+                    <FileText size={14} /> Remisiones ({remisiones.length})
+                  </h4>
+                  {remisiones.length === 0 ? (
+                    <p className="text-xs text-[var(--ink-muted)]">Sin registros</p>
+                  ) : (
+                    <div className="space-y-1">
+                      {remisiones.map((r) => (
+                        <div key={r.id} className="text-xs flex justify-between py-1 border-b border-[var(--border-subtle)] last:border-0">
+                          <span className="text-[var(--ink)]">
+                            {new Date(r.created_at).toLocaleDateString('es-CO')} • {r.remision_number}
+                          </span>
+                          <button
+                            onClick={() => router.push(`/colaboradores/remisiones/${r.id}`)}
+                            className="text-[var(--tint)] hover:underline cursor-pointer"
+                          >
+                            <ExternalLink size={12} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 <div>
                   <h4 className="text-xs font-semibold text-[var(--ink-tertiary)] uppercase mb-2 flex items-center gap-1">
                     <Package size={14} /> Productos tomados ({withdrawals.length})
@@ -339,43 +369,77 @@ function EditSellerModal({ seller, onUpdated }: { seller: Seller; onUpdated: () 
 
 function AssignProductModal({ sellerId, products, onAssigned }: { sellerId: string; products: Product[]; onAssigned: () => void }) {
   const supabase = createClient()
+  const router = useRouter()
   const [open, setOpen] = useState(false)
-  const [form, setForm] = useState({ product_id: '', quantity: 1, delivery_type: 'pending' as 'paid' | 'pending', pending_amount: 0 })
+  const [form, setForm] = useState({
+    product_id: '',
+    quantity: 1,
+    delivery_type: 'pending' as 'paid' | 'pending',
+    payment_method: 'cash' as 'cash' | 'transfer',
+    bank_account: '',
+    card_last_four: '',
+    payment_observations: '',
+  })
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
 
   const selectedProduct = products.find((p) => p.id === form.product_id)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!form.product_id || form.quantity < 1) return
+    if (form.delivery_type === 'paid' && form.payment_method === 'transfer' && (!form.bank_account.trim() || form.card_last_four.length !== 4)) {
+      setError('Completa la cuenta bancaria y los últimos 4 dígitos')
+      return
+    }
     setSaving(true)
+    setError('')
 
-    const pendingAmt = form.delivery_type === 'pending'
-      ? (form.pending_amount || (selectedProduct ? form.quantity * selectedProduct.price : 0))
-      : null
+    const seller = await supabase.from('sellers').select('name, email').eq('id', sellerId).single()
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setSaving(false); return }
-
-    await supabase.from('stock_withdrawals').insert({
-      product_id: form.product_id,
-      quantity: form.quantity,
-      person_name: '',
-      person_email: '',
+    const payload: any = {
       seller_id: sellerId,
+      person_name: seller.data?.name || '',
+      person_email: seller.data?.email || '',
       delivery_type: form.delivery_type,
-      pending_amount: pendingAmt,
-      withdrawal_date: new Date().toISOString(),
-      created_by: user.id,
+      notes: null,
+      items: [{
+        product_id: form.product_id,
+        product_name: selectedProduct?.name || '',
+        quantity: form.quantity,
+        unit_price: selectedProduct?.price || 0,
+      }],
+    }
+
+    if (form.delivery_type === 'paid') {
+      payload.payment_method = form.payment_method
+      payload.bank_account = form.bank_account || null
+      payload.card_last_four = form.card_last_four || null
+      payload.payment_observations = form.payment_observations || null
+    }
+
+    const res = await fetch('/api/remisiones', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
     })
 
-    await supabase.rpc('decrement_stock', { p_product_id: form.product_id, p_quantity: form.quantity })
+    if (!res.ok) {
+      const data = await res.json()
+      setError(data.error || 'Error al asignar producto')
+      setSaving(false)
+      return
+    }
 
+    const remision = await res.json()
     setSaving(false)
     setOpen(false)
-    setForm({ product_id: '', quantity: 1, delivery_type: 'pending', pending_amount: 0 })
+    setForm({ product_id: '', quantity: 1, delivery_type: 'pending', payment_method: 'cash', bank_account: '', card_last_four: '', payment_observations: '' })
     onAssigned()
+    router.push(`/colaboradores/remisiones/${remision.id}`)
   }
+
+  const formatCurrency = (n: number) => '$' + n.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
 
   return (
     <>
@@ -395,7 +459,7 @@ function AssignProductModal({ sellerId, products, onAssigned }: { sellerId: stri
           >
             <option value="">Seleccionar producto</option>
             {products.map((p) => (
-              <option key={p.id} value={p.id}>{p.name} — ${p.price.toLocaleString()}</option>
+              <option key={p.id} value={p.id}>{p.name} — {formatCurrency(p.price)} c/u</option>
             ))}
           </select>
 
@@ -410,19 +474,62 @@ function AssignProductModal({ sellerId, products, onAssigned }: { sellerId: stri
             <option value="pending">Producto por pagar</option>
           </select>
 
-          {form.delivery_type === 'pending' && (
-            <Input
-              label="Valor pendiente (deuda)"
-              type="number"
-              step="0.01"
-              value={form.pending_amount || (selectedProduct ? form.quantity * selectedProduct.price : 0)}
-              onChange={(e) => setForm({ ...form, pending_amount: Number(e.target.value) })}
-            />
+          {form.delivery_type === 'paid' && (
+            <>
+              <div className="border-t border-[var(--border-subtle)] pt-3">
+                <p className="text-xs font-semibold text-[var(--ink-tertiary)] uppercase mb-3">Información del pago</p>
+
+                <select
+                  value={form.payment_method}
+                  onChange={(e) => setForm({ ...form, payment_method: e.target.value as 'cash' | 'transfer' })}
+                  className="w-full px-3 py-2 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+                >
+                  <option value="cash">Efectivo</option>
+                  <option value="transfer">Transferencia</option>
+                </select>
+
+                {form.payment_method === 'transfer' && (
+                  <div className="space-y-3 mt-3">
+                    <Input
+                      label="Cuenta bancaria"
+                      value={form.bank_account}
+                      onChange={(e) => setForm({ ...form, bank_account: e.target.value })}
+                      required
+                    />
+                    <Input
+                      label="Últimos 4 dígitos de la tarjeta"
+                      value={form.card_last_four}
+                      onChange={(e) => setForm({ ...form, card_last_four: e.target.value.slice(0, 4) })}
+                      maxLength={4}
+                      required
+                    />
+                  </div>
+                )}
+
+                <div className="space-y-1.5 mt-3">
+                  <label className="text-sm font-medium text-[var(--ink-secondary)]">Observaciones</label>
+                  <textarea
+                    className="w-full px-3 py-2 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors resize-none"
+                    rows={2}
+                    value={form.payment_observations}
+                    onChange={(e) => setForm({ ...form, payment_observations: e.target.value })}
+                  />
+                </div>
+              </div>
+            </>
+          )}
+
+          {error && (
+            <div className="text-sm text-[var(--danger)] bg-[var(--danger-light)] px-3 py-2 rounded-[var(--radius-sm)] border border-[var(--danger)]/20">
+              {error}
+            </div>
           )}
 
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
-            <Button type="submit" disabled={saving}>{saving ? 'Asignando...' : 'Asignar'}</Button>
+            <Button type="submit" disabled={saving}>
+              {saving ? 'Asignando...' : 'Asignar'}
+            </Button>
           </div>
         </form>
       </Modal>
