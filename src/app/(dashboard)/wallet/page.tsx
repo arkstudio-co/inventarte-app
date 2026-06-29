@@ -7,7 +7,6 @@ import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import {
   TrendingUp,
-  TrendingDown,
   Plus,
   Trash2,
   CheckCircle,
@@ -21,7 +20,7 @@ import {
   CalendarDays,
   X,
 } from 'lucide-react'
-import type { Supplier, AccountPayable } from '@/types/database'
+import type { Supplier, AccountPayable, OperationalExpense } from '@/types/database'
 
 const MONTHS = [
   { value: '1', label: 'Enero' },
@@ -63,6 +62,13 @@ export default function WalletPage() {
   const [customEnd, setCustomEnd] = useState('')
   const [hasCustomized, setHasCustomized] = useState(false)
   const [inventoryValue, setInventoryValue] = useState(0)
+
+  const [opExpenses, setOpExpenses] = useState<OperationalExpense[]>([])
+  const [opExpenseTotals, setOpExpenseTotals] = useState(0)
+  const [balanceOpExpenses, setBalanceOpExpenses] = useState(0)
+
+  const [opModalOpen, setOpModalOpen] = useState(false)
+  const [opForm, setOpForm] = useState({ description: '', amount: 0, category: '', expense_date: '', notes: '' })
 
   const [apModalOpen, setApModalOpen] = useState(false)
   const [apForm, setApForm] = useState({ supplier_id: '', amount: 0, description: '', due_date: '' })
@@ -133,7 +139,7 @@ export default function WalletPage() {
     }
 
     const wf = (q: any, col: string) => startDate ? q.gte(col, startDate).lt(col, endDate) : q
-    const [incomeRes, expensesRes, arRes, apRes, suppliersRes, incomeTotalRes, expenseTotalRes, arTotalRes, paymentsRes, productsRes, balanceIncomeRes, balancePaymentsRes, balanceExpensesRes] = await Promise.all([
+    const [incomeRes, expensesRes, arRes, apRes, suppliersRes, incomeTotalRes, expenseTotalRes, arTotalRes, paymentsRes, productsRes, balanceIncomeRes, balancePaymentsRes, balanceExpensesRes, opExpensesRes, balanceOpExpensesRes] = await Promise.all([
       wf(supabase.from('stock_withdrawals').select('*, products(*)').eq('delivery_type', 'paid'), 'withdrawal_date').order('withdrawal_date', { ascending: false }).limit(10),
       wf(supabase.from('stock_entries').select('*, products(*)'), 'created_at').order('created_at', { ascending: false }).limit(10),
       wf(supabase.from('stock_withdrawals').select('*, products(*), sellers(*)').eq('delivery_type', 'pending').gt('pending_amount', 0), 'withdrawal_date').order('withdrawal_date', { ascending: false }).limit(10),
@@ -147,6 +153,8 @@ export default function WalletPage() {
       supabase.from('stock_withdrawals').select('quantity, products!inner(price)').eq('delivery_type', 'paid'),
       supabase.from('payments').select('amount'),
       supabase.from('stock_entries').select('quantity, products!inner(cost)'),
+      wf(supabase.from('operational_expenses').select('*'), 'expense_date').order('expense_date', { ascending: false }),
+      supabase.from('operational_expenses').select('amount'),
     ])
     if (incomeRes.data) setIncome(incomeRes.data)
     if (expensesRes.data) setExpenses(expensesRes.data)
@@ -161,6 +169,9 @@ export default function WalletPage() {
     if (balanceIncomeRes.data) setBalanceIncome(balanceIncomeRes.data.reduce((s: number, i: any) => s + (i.quantity * (i.products?.price || 0)), 0))
     if (balancePaymentsRes.data) setBalancePayments(balancePaymentsRes.data.reduce((s: number, p: any) => s + p.amount, 0))
     if (balanceExpensesRes.data) setBalanceExpenses(balanceExpensesRes.data.reduce((s: number, e: any) => s + (e.quantity * (e.products?.cost || 0)), 0))
+    if (opExpensesRes.data) setOpExpenses(opExpensesRes.data as OperationalExpense[])
+    if (opExpensesRes.data) setOpExpenseTotals(opExpensesRes.data.reduce((s: number, o: any) => s + o.amount, 0))
+    if (balanceOpExpensesRes.data) setBalanceOpExpenses(balanceOpExpensesRes.data.reduce((s: number, o: any) => s + o.amount, 0))
   }
 
   useEffect(() => { fetchAll() }, [filterMode, filterMonth, filterYear, customStart, customEnd])
@@ -168,7 +179,8 @@ export default function WalletPage() {
   const apTotal = ap.reduce((sum, a) => sum + a.amount, 0)
   const [apShowAll, setApShowAll] = useState(false)
   const netArTotals = Math.max(0, arTotals - paymentsTotal)
-  const balance = balanceIncome + balancePayments
+  const gastosTotal = expenseTotals + opExpenseTotals + apTotal
+  const balance = balanceIncome + balancePayments - balanceOpExpenses
   const isDefault = filterMode === 'month' && filterMonth === now.getMonth() + 1 && filterYear === now.getFullYear()
   const showDateInputs = filterMode === 'custom' || filterMode === 'last30' || filterMode === 'last15' || filterMode === 'last7' || filterMode === 'today' || filterMode === 'yesterday'
   const showPersonalized = hasCustomized || (filterMode === 'month' && !isDefault)
@@ -195,6 +207,28 @@ export default function WalletPage() {
   const deleteAp = async (id: string) => {
     if (!confirm('¿Eliminar esta deuda?')) return
     await supabase.from('accounts_payable').delete().eq('id', id)
+    fetchAll()
+  }
+
+  const [opShowAll, setOpShowAll] = useState(false)
+  const handleCreateOp = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const payload = {
+      description: opForm.description,
+      amount: opForm.amount,
+      category: opForm.category || null,
+      expense_date: opForm.expense_date || null,
+      notes: opForm.notes || null,
+    }
+    await supabase.from('operational_expenses').insert(payload)
+    setOpModalOpen(false)
+    setOpForm({ description: '', amount: 0, category: '', expense_date: '', notes: '' })
+    fetchAll()
+  }
+
+  const deleteOp = async (id: string) => {
+    if (!confirm('¿Eliminar este gasto operativo?')) return
+    await supabase.from('operational_expenses').delete().eq('id', id)
     fetchAll()
   }
 
@@ -348,9 +382,9 @@ export default function WalletPage() {
           </div>
           <div>
             <p className="text-xs text-[var(--ink-tertiary)] uppercase tracking-wide flex items-center gap-1 mb-1">
-              <Building2 size={14} className="text-[var(--warning)]" /> Por Pagar
+              <Building2 size={14} className="text-[var(--warning)]" /> Gastos
             </p>
-            <p className="text-lg font-bold text-[var(--warning)]">{formatCurrency(apTotal)}</p>
+            <p className="text-lg font-bold text-[var(--warning)]">{formatCurrency(gastosTotal)}</p>
           </div>
         </div>
 
@@ -358,7 +392,7 @@ export default function WalletPage() {
           <p className="text-xs font-medium text-[var(--ink)]/70 uppercase tracking-wide mb-1">Saldo Disponible</p>
           <p className="text-3xl font-bold text-[var(--ink)]">{formatCurrency(balance)}</p>
           <p className="text-xs text-[var(--ink)]/60 mt-1">
-            Ingresos − Por Cobrar
+            Ingresos − Por Cobrar − Gastos Operativos
           </p>
         </div>
       </div>
@@ -454,15 +488,51 @@ export default function WalletPage() {
         </SectionCard>
       </div>
 
-      {/* Expenses + AP */}
-      <div className="grid lg:grid-cols-2 gap-4">
-        <SectionCard title="Inversión en Inventario" icon={TrendingDown} iconColor="text-[var(--danger)]">
-          {expenses.length === 0 ? (
-            <p className="text-sm text-[var(--ink-tertiary)] py-4 text-center">No hay inversión en inventario registrada</p>
-          ) : (
+      {/* Gastos: unified section */}
+      <SectionCard
+        title="Gastos"
+        icon={Building2}
+        iconColor="text-[var(--warning)]"
+        action={
+          <div className="flex items-center gap-1.5">
+            <Button size="sm" onClick={() => setOpModalOpen(true)}>
+              <Plus size={14} /> Gasto Operativo
+            </Button>
+            <Button size="sm" onClick={() => setApModalOpen(true)}>
+              <Plus size={14} /> Deuda
+            </Button>
+          </div>
+        }
+      >
+        {/* Summary rows */}
+        <div className="space-y-1 pb-3 border-b border-[var(--border-subtle)]">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-[var(--ink-secondary)]">Costo de Mercancía</span>
+            <span className="font-semibold text-[var(--danger)]">{formatCurrency(expenseTotals)}</span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-[var(--ink-secondary)]">Gastos Operativos</span>
+            <span className="font-semibold text-[var(--warning)]">{formatCurrency(opExpenseTotals)}</span>
+          </div>
+          {apTotal > 0 && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-[var(--ink-secondary)]">Cuentas por Pagar</span>
+              <span className="font-semibold text-[var(--warning)]">{formatCurrency(apTotal)}</span>
+            </div>
+          )}
+          <div className="flex items-center justify-between text-sm font-semibold pt-1 border-t border-[var(--border-subtle)]">
+            <span className="text-[var(--ink)]">Total Gastos</span>
+            <span className="text-[var(--ink)]">{formatCurrency(gastosTotal)}</span>
+          </div>
+        </div>
+
+        {/* Costo de Mercancía detail */}
+        {expenses.length > 0 && (
+          <div className="pt-3">
+            <p className="text-xs font-semibold text-[var(--ink-tertiary)] uppercase tracking-wide mb-2">Costo de Mercancía</p>
             <div className="divide-y divide-[var(--border-subtle)]">
-              {expenses.map((e) => (
-                <div key={e.id} className="py-2.5 flex items-center justify-between gap-2">
+              {expenses.slice(0, opShowAll ? undefined : 2).map((e) => (
+                <div key={e.id} className="py-2 flex items-center justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-[var(--ink)] truncate">{e.products?.name || 'Sin producto'}</p>
                     <p className="text-xs text-[var(--ink-tertiary)]">
@@ -475,25 +545,45 @@ export default function WalletPage() {
                 </div>
               ))}
             </div>
-          )}
-        </SectionCard>
+          </div>
+        )}
 
-        <SectionCard
-          title="Cuentas por Pagar"
-          icon={Building2}
-          iconColor="text-[var(--warning)]"
-          action={
-            <Button size="sm" onClick={() => setApModalOpen(true)}>
-              <Plus size={14} /> Agregar Deuda
-            </Button>
-          }
-        >
-          {ap.length === 0 ? (
-            <p className="text-sm text-[var(--ink-tertiary)] py-4 text-center">No hay cuentas por pagar</p>
-          ) : (
+        {/* Gastos Operativos detail */}
+        {opExpenses.length > 0 && (
+          <div className="pt-3">
+            <p className="text-xs font-semibold text-[var(--ink-tertiary)] uppercase tracking-wide mb-2">Gastos Operativos</p>
+            <div className="divide-y divide-[var(--border-subtle)]">
+              {(opShowAll ? opExpenses : opExpenses.slice(0, 2)).map((o) => (
+                <div key={o.id} className="py-2 flex items-center justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-[var(--ink)] truncate">{o.description}</p>
+                    <p className="text-xs text-[var(--ink-tertiary)]">
+                      {o.category || '—'} • {o.expense_date ? new Date(o.expense_date).toLocaleDateString('es-CO') : '—'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <p className="text-sm font-bold text-[var(--warning)]">{formatCurrency(o.amount)}</p>
+                    <button
+                      onClick={() => deleteOp(o.id)}
+                      className="p-1 text-[var(--ink-tertiary)] hover:text-[var(--danger)] rounded-[var(--radius-sm)] cursor-pointer"
+                      title="Eliminar"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Cuentas por Pagar detail */}
+        {ap.length > 0 && (
+          <div className="pt-3">
+            <p className="text-xs font-semibold text-[var(--ink-tertiary)] uppercase tracking-wide mb-2">Cuentas por Pagar</p>
             <div className="divide-y divide-[var(--border-subtle)]">
               {(apShowAll ? ap : ap.slice(0, 2)).map((a) => (
-                <div key={a.id} className="py-2.5 flex items-center justify-between gap-2">
+                <div key={a.id} className="py-2 flex items-center justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-[var(--ink)] truncate">{a.suppliers?.name || 'Proveedor'}</p>
                     <p className="text-xs text-[var(--ink-tertiary)]">
@@ -508,30 +598,36 @@ export default function WalletPage() {
                       className="p-1 text-[var(--ink-tertiary)] hover:text-[var(--success)] rounded-[var(--radius-sm)] cursor-pointer"
                       title="Marcar como pagada"
                     >
-                      <CheckCircle size={16} />
+                      <CheckCircle size={14} />
                     </button>
                     <button
                       onClick={() => deleteAp(a.id)}
                       className="p-1 text-[var(--ink-tertiary)] hover:text-[var(--danger)] rounded-[var(--radius-sm)] cursor-pointer"
                       title="Eliminar"
                     >
-                      <Trash2 size={16} />
+                      <Trash2 size={14} />
                     </button>
                   </div>
                 </div>
               ))}
-              {ap.length > 2 && (
-                <button
-                  onClick={() => setApShowAll(!apShowAll)}
-                  className="w-full py-2 text-xs text-[var(--accent)] hover:text-[var(--accent-hover)] hover:underline cursor-pointer text-center"
-                >
-                  {apShowAll ? 'Ver menos' : `Ver más (${ap.length - 2} restantes)`}
-                </button>
-              )}
             </div>
-          )}
-        </SectionCard>
-      </div>
+          </div>
+        )}
+
+        {/* Show more toggle */}
+        {(expenses.length > 2 || opExpenses.length > 2 || ap.length > 2) && (
+          <button
+            onClick={() => setOpShowAll(!opShowAll)}
+            className="w-full mt-2 py-2 text-xs text-[var(--accent)] hover:text-[var(--accent-hover)] hover:underline cursor-pointer text-center"
+          >
+            {opShowAll ? 'Ver menos' : 'Ver más'}
+          </button>
+        )}
+
+        {expenses.length === 0 && opExpenses.length === 0 && ap.length === 0 && (
+          <p className="text-sm text-[var(--ink-tertiary)] py-4 text-center">No hay gastos registrados</p>
+        )}
+      </SectionCard>
 
       {/* Valor del Inventario */}
       <div className="rounded-[var(--radius-md)] bg-[var(--surface-1)] border border-[var(--border-default)] p-4">
@@ -544,7 +640,7 @@ export default function WalletPage() {
       </div>
 
       {/* Modal: Add AP */}
-      <Modal isOpen={apModalOpen} onClose={() => setApModalOpen(false)} title="Agregar Cuenta por Pagar">
+      <Modal isOpen={apModalOpen} onClose={() => setApModalOpen(false)} title="Agregar Gasto">
         <form onSubmit={handleCreateAp} className="space-y-4">
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-[var(--ink-secondary)]">Proveedor</label>
@@ -565,6 +661,21 @@ export default function WalletPage() {
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="ghost" onClick={() => setApModalOpen(false)}>Cancelar</Button>
             <Button type="submit">Crear Deuda</Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Modal: Add Operational Expense */}
+      <Modal isOpen={opModalOpen} onClose={() => setOpModalOpen(false)} title="Agregar Gasto Operativo">
+        <form onSubmit={handleCreateOp} className="space-y-4">
+          <Input label="Descripción" value={opForm.description} onChange={(e) => setOpForm({ ...opForm, description: e.target.value })} required />
+          <Input label="Monto" type="number" value={opForm.amount} onChange={(e) => setOpForm({ ...opForm, amount: Number(e.target.value) })} required min={1} />
+          <Input label="Categoría" value={opForm.category} onChange={(e) => setOpForm({ ...opForm, category: e.target.value })} placeholder="ej. Arriendo, Servicios, Papelería" />
+          <Input label="Fecha del gasto" type="date" value={opForm.expense_date} onChange={(e) => setOpForm({ ...opForm, expense_date: e.target.value })} />
+          <Input label="Notas" value={opForm.notes} onChange={(e) => setOpForm({ ...opForm, notes: e.target.value })} />
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="ghost" onClick={() => setOpModalOpen(false)}>Cancelar</Button>
+            <Button type="submit">Crear Gasto</Button>
           </div>
         </form>
       </Modal>
@@ -592,5 +703,8 @@ function SectionCard({ title, icon: Icon, iconColor, children, action }: {
     </div>
   )
 }
+
+
+
 
 

@@ -184,6 +184,17 @@ export interface AccountPayable {
   suppliers?: Supplier | null
 }
 
+export interface OperationalExpense {
+  id: string
+  description: string
+  amount: number
+  category: string
+  expense_date: string
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface CompanyInfo {
   id: string
   hero_title: string
