@@ -1,0 +1,119 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-29T00:40:00.000Z",
+  "title": "Design System: Dibujarte — La Galería Operativa",
+  "extensions": {
+    "colorMeta": {
+      "primary": { "role": "primary", "displayName": "Deep Teal", "canonical": "#1A5F7A", "tonalRamp": ["#0E3A4D", "#134B61", "#1A5F7A", "#2A7A9A", "#4A9ABA", "#7ABCD4", "#A8D4E8", "#D4EAF4"] },
+      "accent": { "role": "accent", "displayName": "Gold Amber", "canonical": "#D4A04A", "tonalRamp": ["#8A6830", "#A8803A", "#C08E38", "#D4A04A", "#DDB86A", "#E8CC8A", "#F2E0AA", "#F8F0D4"] },
+      "surface": { "role": "neutral", "displayName": "White", "canonical": "#FFFFFF" },
+      "surface-muted": { "role": "neutral", "displayName": "Muted White", "canonical": "#F5F6F8" },
+      "ink": { "role": "neutral", "displayName": "Ink", "canonical": "#1E1E2E" }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Títulos de página y encabezados de sección principales. Solo una vez por vista." },
+      "headline": { "displayName": "Headline", "purpose": "Títulos de sección secundarios, encabezados de tarjetas." },
+      "title": { "displayName": "Title", "purpose": "Nombres de productos, encabezados de listas." },
+      "body": { "displayName": "Body", "purpose": "Texto de contenido, descripciones, celdas de tabla." },
+      "label": { "displayName": "Label", "purpose": "Etiquetas de formulario, badges, tabs, botones." },
+      "mono": { "displayName": "Mono", "purpose": "Datos numéricos, SKUs, códigos, cantidades." }
+    },
+    "shadows": [
+      { "name": "card", "value": "0 1px 3px rgba(0,0,0,0.04)", "purpose": "Elevación base para tarjetas en reposo." },
+      { "name": "card-hover", "value": "0 4px 12px rgba(0,0,0,0.06)", "purpose": "Tarjetas en hover, botones primarios." },
+      { "name": "elevated", "value": "0 8px 24px rgba(0,0,0,0.08)", "purpose": "Modales, menús desplegables, tooltips." },
+      { "name": "sticky", "value": "0 2px 8px rgba(0,0,0,0.06)", "purpose": "Headers y elementos sticky." }
+    ],
+    "motion": [
+      { "name": "ease-default", "value": "cubic-bezier(0.25, 0.1, 0.25, 1)", "purpose": "Easing estándar para transiciones de estado." },
+      { "name": "duration-fast", "value": "150ms", "purpose": "Hover y focus states." },
+      { "name": "duration-normal", "value": "200ms", "purpose": "Transiciones de estado generales." },
+      { "name": "duration-slow", "value": "300ms", "purpose": "Apertura de modales y menús." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Botón de acción principal. Deep Teal sobre blanco.",
+      "html": "<button class=\"ds-btn-primary\">Nuevo producto</button>",
+      "css": ".ds-btn-primary { background: #1A5F7A; color: #fff; padding: 10px 20px; border: none; border-radius: 6px; font-family: 'Instrument Sans', system-ui, sans-serif; font-size: 0.8125rem; font-weight: 500; letter-spacing: 0.02em; cursor: pointer; transition: background 200ms cubic-bezier(0.25,0.1,0.25,1), box-shadow 200ms cubic-bezier(0.25,0.1,0.25,1); } .ds-btn-primary:hover { background: #134B61; box-shadow: 0 4px 12px rgba(0,0,0,0.06); } .ds-btn-primary:focus-visible { outline: 2px solid #1A5F7A; outline-offset: 2px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Botón secundario con outline.",
+      "html": "<button class=\"ds-btn-secondary\">Cancelar</button>",
+      "css": ".ds-btn-secondary { background: transparent; color: #1A5F7A; padding: 10px 20px; border: 1px solid #1A5F7A; border-radius: 6px; font-family: 'Instrument Sans', system-ui, sans-serif; font-size: 0.8125rem; font-weight: 500; letter-spacing: 0.02em; cursor: pointer; transition: background 200ms cubic-bezier(0.25,0.1,0.25,1); } .ds-btn-secondary:hover { background: #E8F0F4; } .ds-btn-secondary:focus-visible { outline: 2px solid #1A5F7A; outline-offset: 2px; }"
+    },
+    {
+      "name": "Input Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Campo de texto estándar.",
+      "html": "<div class=\"ds-field\"><label class=\"ds-label\">Nombre del producto</label><input class=\"ds-input\" type=\"text\" placeholder=\"Ej: Lápiz HB\" /></div>",
+      "css": ".ds-field { display: flex; flex-direction: column; gap: 6px; } .ds-label { font-family: 'Instrument Sans', system-ui, sans-serif; font-size: 0.8125rem; font-weight: 500; letter-spacing: 0.02em; color: #5A5B6E; } .ds-input { padding: 10px 14px; border: 1px solid #E2E4E9; border-radius: 6px; font-family: 'Instrument Sans', system-ui, sans-serif; font-size: 0.9375rem; color: #1E1E2E; background: #fff; transition: border-color 200ms cubic-bezier(0.25,0.1,0.25,1), box-shadow 200ms cubic-bezier(0.25,0.1,0.25,1); } .ds-input::placeholder { color: #B8B9CC; } .ds-input:focus { outline: none; border-color: #1A5F7A; box-shadow: 0 0 0 3px rgba(26,95,122,0.12); }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Contenedor de contenido con elevación sutil.",
+      "html": "<div class=\"ds-card\"><h3 class=\"ds-card-title\">Resumen de inventario</h3><p class=\"ds-card-body\">Contenido de la tarjeta aquí.</p></div>",
+      "css": ".ds-card { background: #fff; border: 1px solid #E2E4E9; border-radius: 8px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: box-shadow 200ms cubic-bezier(0.25,0.1,0.25,1); } .ds-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.06); } .ds-card-title { font-family: 'Instrument Sans', system-ui, sans-serif; font-size: 1rem; font-weight: 600; color: #1E1E2E; margin: 0 0 8px; } .ds-card-body { font-family: 'Instrument Sans', system-ui, sans-serif; font-size: 0.9375rem; color: #5A5B6E; margin: 0; }"
+    },
+    {
+      "name": "Badge",
+      "kind": "chip",
+      "refersTo": "badge-default",
+      "description": "Etiqueta de estado con bordes redondeados.",
+      "html": "<span class=\"ds-badge ds-badge-success\">Disponible</span>",
+      "css": ".ds-badge { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 9999px; font-family: 'Instrument Sans', system-ui, sans-serif; font-size: 0.8125rem; font-weight: 500; letter-spacing: 0.02em; } .ds-badge-success { background: #E6F4EE; color: #2E7D5C; } .ds-badge-warning { background: #FBF0E0; color: #D4943A; } .ds-badge-danger { background: #F9E6E6; color: #C44040; } .ds-badge-default { background: #F5F6F8; color: #5A5B6E; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "La Galería Operativa",
+    "overview": "Cada pantalla es una galería donde los datos y productos se exhiben con claridad, orden y propósito. Como una galería de arte bien curada, el espacio negativo respira, la jerarquía guía la mirada, y cada elemento está donde debe estar porque tiene una razón de estar ahí. Este sistema combina la solidez corporativa de una plataforma enterprise con la calidez de una empresa creativa.",
+    "keyCharacteristics": [
+      "Profesional con alma corporativa, no frío ni industrial",
+      "Tarjetas y paneles con capas sutiles de elevación",
+      "Jerarquía visual clara guiada por tipografía y color",
+      "Blanco generoso como lienzo principal",
+      "Acento dorado usado con precisión quirúrgica (≤10% de la superficie)",
+      "Datos presentados como parte de la curaduría visual, no como tablas genéricas"
+    ],
+    "rules": [
+      { "name": "La Regla del Lienzo Blanco", "body": "El fondo siempre es blanco o blanco matizado. La página es el lienzo; las tarjetas y paneles flotan sobre él. Nunca uses fondos de color sobre fondos de color.", "section": "colors" },
+      { "name": "La Regla del Toque de Oro", "body": "El dorado se usa en ≤10% de la pantalla. Es un acento, no un color de relleno.", "section": "colors" },
+      { "name": "La Regla de la Sombra Susurrante", "body": "Las sombras son sutiles, nunca dramáticas. Si alguien nota la sombra antes que el contenido, la sombra es demasiado fuerte.", "section": "elevation" }
+    ],
+    "dos": [
+      "Usar Deep Teal como color primario de acción en botones, enlaces y elementos interactivos.",
+      "Mantener el dorado como un acento escaso y deliberado (≤10% de la pantalla).",
+      "Usar tarjetas blancas con sombras suaves para contener información relacionada.",
+      "Aprovechar el espacio en blanco como herramienta de jerarquía visual.",
+      "Usar Instrument Sans para todo el texto, con JetBrains Mono exclusivamente para datos técnicos.",
+      "Mantener una transición de 200ms ease en todos los estados interactivos (hover, focus).",
+      "Usar la sombra correcta según el nivel de elevación del componente."
+    ],
+    "donts": [
+      "Usar gradientes púrpura, fondos crema por defecto, o glassmorphism decorativo.",
+      "Usar tipografía Inter como default (es la señal más obvia de 'AI slop').",
+      "Poner bordes decorativos left/right mayores a 1px como acento en tarjetas.",
+      "Usar texto gris claro sobre fondos de color.",
+      "Anidar tarjetas dentro de tarjetas.",
+      "Usar bounce o elastic easing en animaciones.",
+      "Usar sombras dramáticas o grandes.",
+      "Usar el dorado como color de relleno en áreas grandes.",
+      "Usar texto gradient (background-clip: text con gradiente)."
+    ]
+  }
+}

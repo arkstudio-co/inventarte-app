@@ -100,19 +100,19 @@ export function CompanyCarousel({ companies }: CompanyCarouselProps) {
         onTouchMove={(e) => handleDragMove(e.touches[0].pageX)}
         onTouchEnd={handleDragEnd}
       >
-        <div className="flex gap-8 px-4">
+        <div className="flex gap-6 px-4">
           {duplicated.map((item, i) => {
             const initials = getInitials(item.name)
             return (
               <div
                 key={`${item.id || i}-${i}`}
-                className="flex flex-col items-center gap-3 shrink-0 select-none w-[240px]"
+                className="flex flex-col items-center gap-3 shrink-0 select-none w-[200px]"
               >
-                <div className="w-[200px] h-[200px] rounded-[var(--radius-md)] bg-[var(--surface-1)] border border-[var(--border-default)] flex items-center justify-center overflow-hidden">
+                <div className="w-[160px] h-[160px] rounded-[var(--radius-xl)] bg-white border border-[var(--border)] shadow-[var(--shadow-card)] flex items-center justify-center overflow-hidden">
                   {item.logo_url ? (
                     <img src={item.logo_url} alt={item.name} className="w-full h-full object-contain p-5 pointer-events-none" />
                   ) : (
-                    <span className="text-3xl font-bold text-[var(--tint)]">{initials}</span>
+                    <span className="text-2xl font-bold text-[var(--primary)]">{initials}</span>
                   )}
                 </div>
                 <span className="text-sm font-medium text-[var(--ink-secondary)] text-center leading-tight">{item.name}</span>

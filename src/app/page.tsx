@@ -15,7 +15,10 @@ import {
   Phone,
   MapPin,
   CheckCircle,
-  Globe,
+  ArrowRight,
+  ShieldCheck,
+  TrendingUp,
+  Users,
 } from 'lucide-react'
 
 const fallbackComunidad = [
@@ -96,153 +99,185 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--surface-0)]">
+    <div className="min-h-screen bg-white">
       {/* Header */}
-      <header className="border-b border-[var(--border-default)]">
+      <header className="bg-[var(--primary)]">
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-[var(--radius-sm)] bg-[var(--tint)] flex items-center justify-center">
-              <span className="text-sm font-bold text-[var(--ink)]">D</span>
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-[var(--radius-md)] bg-[var(--accent)] flex items-center justify-center">
+              <span className="text-sm font-bold text-white">D</span>
             </div>
-            <span className="font-semibold text-[var(--ink)]">Dibujarte</span>
+            <span className="font-semibold text-white">Dibujarte</span>
           </div>
-          <nav className="hidden sm:flex items-center gap-6 text-sm text-[var(--ink-secondary)]">
-            <a href="#trayectoria" className="hover:text-[var(--ink)] transition-colors">Trayectoria</a>
-            <a href="#contacto" className="hover:text-[var(--ink)] transition-colors">Contacto</a>
+          <nav className="hidden sm:flex items-center gap-6 text-sm text-white/80">
+            <a href="#trayectoria" className="hover:text-white transition-colors">Trayectoria</a>
+            <a href="#contacto" className="hover:text-white transition-colors">Contacto</a>
+            <a href="#acceso" className="inline-flex items-center gap-1.5 text-white bg-white/15 hover:bg-white/25 px-4 py-1.5 rounded-[var(--radius-md)] transition-colors">
+              Acceder
+              <ArrowRight size={14} />
+            </a>
           </nav>
         </div>
       </header>
 
       {/* Hero */}
-      <section className="max-w-6xl mx-auto px-4 py-16 lg:py-24">
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
-          <div className="space-y-6 text-center">
-            <h1 className="text-4xl lg:text-5xl font-bold text-[var(--ink)] leading-tight">
-              {companyInfo?.hero_title || 'Dibujarte Editores'}
-            </h1>
-            <p className="text-lg text-[var(--ink-secondary)] leading-relaxed">
-              {companyInfo?.hero_description || 'Tu proveedor de confianza en materiales de arte y papelería. Calidad y variedad para dar vida a tus proyectos creativos.'}
-            </p>
-
-            {/* Login Form inline */}
-            <form onSubmit={handleLogin} className="space-y-3 max-w-sm mx-auto">
-              <Input
-                placeholder="Correo electrónico"
-                type="email"
-                value={loginEmail}
-                onChange={(e) => setLoginEmail(e.target.value)}
-                required
-              />
-              <Input
-                placeholder="Contraseña"
-                type="password"
-                value={loginPassword}
-                onChange={(e) => setLoginPassword(e.target.value)}
-                required
-              />
-              {loginError && (
-                <p className="text-sm text-[var(--danger)]">{loginError}</p>
-              )}
-              <Button type="submit" className="w-full" disabled={isLoggingIn}>
-                {isLoggingIn ? 'Ingresando...' : 'Iniciar Sesión'}
-              </Button>
-              <div className="text-center">
-                <a href="/forgot-password" className="text-xs text-[var(--accent)] hover:underline">
-                  ¿Olvidaste tu contraseña?
-                </a>
+      <section id="acceso" className="bg-gradient-to-b from-[var(--primary)] to-white">
+        <div className="max-w-6xl mx-auto px-4 pt-16 pb-24 lg:pt-24 lg:pb-32">
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+            <div className="space-y-6">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-[var(--radius-full)] bg-white/20 text-white/90 text-xs font-medium">
+                <ShieldCheck size={14} />
+                Sistema de gestión de inventario
               </div>
-            </form>
+              <h1 className="text-4xl lg:text-5xl xl:text-6xl font-bold text-white leading-[1.08] tracking-[-0.02em]">
+                {companyInfo?.hero_title || 'Dibujarte Editores'}
+              </h1>
+              <p className="text-lg text-white/70 leading-relaxed max-w-lg">
+                {companyInfo?.hero_description || 'Tu proveedor de confianza en materiales de arte y papelería. Calidad y variedad para dar vida a tus proyectos creativos.'}
+              </p>
 
-            <div className="grid grid-cols-2 gap-4 pt-6 border-t border-[var(--border-subtle)] max-w-sm mx-auto">
-              <div className="text-center">
-                <p className="text-4xl lg:text-5xl font-bold text-[var(--tint)]">
-                  +{companyInfo?.founded_year ? new Date().getFullYear() - companyInfo.founded_year : 0}
-                </p>
-                <span className="text-xs text-[var(--ink-tertiary)] uppercase tracking-wide">años</span>
-              </div>
-              <div className="text-center">
-                <p className="text-4xl lg:text-5xl font-bold text-[var(--tint)]">+{totalCompanyCount}</p>
-                <span className="text-xs text-[var(--ink-tertiary)] uppercase tracking-wide">empresas</span>
+              {/* Stats */}
+              <div className="flex gap-8 pt-4">
+                <div>
+                  <p className="text-3xl font-bold text-[var(--accent)]">
+                    +{companyInfo?.founded_year ? new Date().getFullYear() - companyInfo.founded_year : 0}
+                  </p>
+                  <span className="text-xs text-white/60 uppercase tracking-wider">años</span>
+                </div>
+                <div>
+                  <p className="text-3xl font-bold text-[var(--accent)]">+{totalCompanyCount}</p>
+                  <span className="text-xs text-white/60 uppercase tracking-wider">empresas</span>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="aspect-[4/3] rounded-[var(--radius-lg)] bg-[var(--surface-1)] border border-[var(--border-default)] flex items-center justify-center">
-            <div className="text-center p-8">
-              <Package size={64} className="mx-auto mb-4 text-[var(--tint)]" />
-              <p className="text-[var(--ink-tertiary)]">Imagen principal</p>
+            <div className="bg-white rounded-[var(--radius-xl)] shadow-[var(--shadow-elevated)] p-6 lg:p-8">
+              <h2 className="text-xl font-semibold text-[var(--ink)] mb-1">Iniciar Sesión</h2>
+              <p className="text-sm text-[var(--ink-tertiary)] mb-6">Accede al panel de administración</p>
+              <form onSubmit={handleLogin} className="space-y-4">
+                <Input
+                  placeholder="Correo electrónico"
+                  type="email"
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                  required
+                />
+                <Input
+                  placeholder="Contraseña"
+                  type="password"
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  required
+                />
+                {loginError && (
+                  <p className="text-sm text-[var(--danger)]">{loginError}</p>
+                )}
+                <Button type="submit" className="w-full" disabled={isLoggingIn}>
+                  {isLoggingIn ? 'Ingresando...' : 'Iniciar Sesión'}
+                </Button>
+                <div className="text-center">
+                  <a href="/forgot-password" className="text-xs text-[var(--primary)] hover:underline">
+                    ¿Olvidaste tu contraseña?
+                  </a>
+                </div>
+              </form>
             </div>
           </div>
         </div>
       </section>
 
       {/* Trajectory */}
-      <section id="trayectoria" className="border-t border-[var(--border-default)] py-16 bg-[var(--surface-1)]">
+      <section id="trayectoria" className="py-20 lg:py-28">
         <div className="max-w-6xl mx-auto px-4">
-          <h2 className="text-2xl font-bold text-[var(--ink)] mb-8 text-center">Nuestra Trayectoria</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
-            <div className="p-6">
-              <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-[var(--tint-light)] flex items-center justify-center">
-                <CheckCircle size={24} className="text-[var(--tint)]" />
+          <div className="text-center max-w-2xl mx-auto mb-14">
+            <h2 className="text-3xl lg:text-4xl font-bold text-[var(--ink)] tracking-[-0.02em] mb-4">
+              Nuestra Trayectoria
+            </h2>
+            <p className="text-[var(--ink-tertiary)] leading-relaxed">
+              Más de una década ofreciendo los mejores materiales de arte y papelería a instituciones educativas y clientes en toda la región.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-white rounded-[var(--radius-xl)] border border-[var(--border)] p-8 shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-card-hover)] transition-shadow duration-200">
+              <div className="w-12 h-12 rounded-[var(--radius-lg)] bg-[var(--primary-light)] flex items-center justify-center mb-5">
+                <TrendingUp size={24} className="text-[var(--primary)]" />
               </div>
-              <h3 className="font-semibold text-[var(--ink)] mb-2">Experiencia</h3>
-              <p className="text-sm text-[var(--ink-tertiary)]">Años de experiencia en el mercado de papelería y arte.</p>
+              <h3 className="text-lg font-semibold text-[var(--ink)] mb-2">Experiencia</h3>
+              <p className="text-sm text-[var(--ink-tertiary)] leading-relaxed">
+                Años de experiencia en el mercado de papelería y arte, con un profundo conocimiento de las necesidades de nuestros clientes.
+              </p>
             </div>
-            <div className="p-6">
-              <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-[var(--tint-light)] flex items-center justify-center">
-                <Package size={24} className="text-[var(--tint)]" />
+            <div className="bg-white rounded-[var(--radius-xl)] border border-[var(--border)] p-8 shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-card-hover)] transition-shadow duration-200">
+              <div className="w-12 h-12 rounded-[var(--radius-lg)] bg-[var(--accent-light)] flex items-center justify-center mb-5">
+                <CheckCircle size={24} className="text-[var(--accent)]" />
               </div>
-              <h3 className="font-semibold text-[var(--ink)] mb-2">Calidad</h3>
-              <p className="text-sm text-[var(--ink-tertiary)]">Productos seleccionados con los más altos estándares.</p>
+              <h3 className="text-lg font-semibold text-[var(--ink)] mb-2">Calidad</h3>
+              <p className="text-sm text-[var(--ink-tertiary)] leading-relaxed">
+                Productos seleccionados con los más altos estándares, garantizando la mejor experiencia para tus proyectos creativos.
+              </p>
             </div>
-            <div className="p-6">
-              <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-[var(--tint-light)] flex items-center justify-center">
-                <MapPin size={24} className="text-[var(--tint)]" />
+            <div className="bg-white rounded-[var(--radius-xl)] border border-[var(--border)] p-8 shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-card-hover)] transition-shadow duration-200">
+              <div className="w-12 h-12 rounded-[var(--radius-lg)] bg-[var(--primary-light)] flex items-center justify-center mb-5">
+                <Users size={24} className="text-[var(--primary)]" />
               </div>
-              <h3 className="font-semibold text-[var(--ink)] mb-2">Cobertura</h3>
-              <p className="text-sm text-[var(--ink-tertiary)]">Atendiendo a clientes en toda la región.</p>
+              <h3 className="text-lg font-semibold text-[var(--ink)] mb-2">Cobertura</h3>
+              <p className="text-sm text-[var(--ink-tertiary)] leading-relaxed">
+                Atendiendo a clientes en toda la región con una red de distribución confiable y eficiente.
+              </p>
             </div>
           </div>
         </div>
       </section>
 
       {/* Community */}
-      <section id="comunidad" className="border-t border-[var(--border-default)] py-16">
+      <section className="bg-[var(--surface-muted)] py-20 lg:py-28">
         <div className="max-w-6xl mx-auto px-4">
-          <h2 className="text-2xl font-bold text-[var(--ink)] mb-2 text-center">{companyInfo?.community_title || 'Clientes y Colaboradores'}</h2>
-          <p className="text-sm text-[var(--ink-tertiary)] text-center mb-10">
-            {companyInfo?.community_description || 'Empresas e instituciones que confían en nuestros productos'}
-          </p>
+          <div className="text-center max-w-2xl mx-auto mb-14">
+            <h2 className="text-3xl lg:text-4xl font-bold text-[var(--ink)] tracking-[-0.02em] mb-4">
+              {companyInfo?.community_title || 'Clientes y Colaboradores'}
+            </h2>
+            <p className="text-[var(--ink-tertiary)] leading-relaxed">
+              {companyInfo?.community_description || 'Empresas e instituciones que confían en nuestros productos'}
+            </p>
+          </div>
           <CompanyCarousel companies={communityCompanies.length > 0 ? communityCompanies : fallbackComunidad} />
         </div>
       </section>
 
       {/* Contact */}
-      <section id="contacto" className="border-t border-[var(--border-default)] py-16">
+      <section id="contacto" className="py-20 lg:py-28">
         <div className="max-w-6xl mx-auto px-4">
-          <h2 className="text-2xl font-bold text-[var(--ink)] mb-8 text-center">Contacto</h2>
-          <div className="grid lg:grid-cols-2 gap-12 max-w-3xl mx-auto">
-            <div className="space-y-4">
+          <div className="text-center max-w-2xl mx-auto mb-14">
+            <h2 className="text-3xl lg:text-4xl font-bold text-[var(--ink)] tracking-[-0.02em] mb-4">Contacto</h2>
+            <p className="text-[var(--ink-tertiary)] leading-relaxed">
+              Estamos aquí para ayudarte. Escríbenos y te responderemos a la brevedad.
+            </p>
+          </div>
+          <div className="grid lg:grid-cols-5 gap-8 max-w-4xl mx-auto">
+            <div className="lg:col-span-3">
               {contactSent ? (
-                <div className="rounded-[var(--radius-md)] bg-[var(--success-light)] border border-[var(--success)]/30 p-6 text-center">
-                  <CheckCircle size={40} className="mx-auto mb-3 text-[var(--success)]" />
-                  <p className="text-sm font-medium text-[var(--success)]">Mensaje enviado con éxito</p>
+                <div className="bg-[var(--success-light)] border border-[var(--success)]/30 rounded-[var(--radius-xl)] p-8 text-center">
+                  <CheckCircle size={48} className="mx-auto mb-4 text-[var(--success)]" />
+                  <p className="text-lg font-semibold text-[var(--success)]">Mensaje enviado con éxito</p>
+                  <p className="text-sm text-[var(--success)]/70 mt-1">Te contactaremos pronto.</p>
                 </div>
               ) : (
                 <form onSubmit={handleContact} className="space-y-4">
-                  <Input
-                    placeholder="Nombre"
-                    value={contactForm.name}
-                    onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })}
-                    required
-                  />
-                  <Input
-                    placeholder="Correo electrónico"
-                    type="email"
-                    value={contactForm.email}
-                    onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
-                    required
-                  />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Input
+                      placeholder="Nombre"
+                      value={contactForm.name}
+                      onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })}
+                      required
+                    />
+                    <Input
+                      placeholder="Correo electrónico"
+                      type="email"
+                      value={contactForm.email}
+                      onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
+                      required
+                    />
+                  </div>
                   <Input
                     placeholder="Teléfono (opcional)"
                     value={contactForm.phone}
@@ -250,7 +285,7 @@ export default function LandingPage() {
                   />
                   <div className="space-y-1.5">
                     <textarea
-                      className="w-full px-3 py-2 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-1)] text-[var(--ink)] border border-[var(--border-default)] placeholder:text-[var(--ink-muted)] focus:outline-none focus:border-[var(--accent)] transition-colors resize-none"
+                      className="w-full px-3.5 py-2.5 text-sm rounded-[var(--radius-md)] bg-[var(--surface)] text-[var(--ink)] border border-[var(--border)] placeholder:text-[var(--ink-muted)] hover:border-[var(--border-strong)] focus:outline-none focus:border-[var(--primary)] focus:shadow-[0_0_0_3px_rgba(26,95,122,0.12)] transition-all duration-200 resize-none"
                       rows={4}
                       placeholder="Mensaje"
                       value={contactForm.message}
@@ -259,24 +294,32 @@ export default function LandingPage() {
                     />
                   </div>
                   {contactError && <p className="text-sm text-[var(--danger)]">{contactError}</p>}
-                  <Button type="submit">Enviar Mensaje</Button>
+                  <Button type="submit" size="lg">Enviar Mensaje</Button>
                 </form>
               )}
             </div>
 
-            <div className="space-y-4">
-              <div className="flex items-center gap-3 p-4 rounded-[var(--radius-md)] bg-[var(--surface-1)] border border-[var(--border-default)]">
-                <Mail size={20} className="text-[var(--tint)]" />
-                <div>
-                  <p className="text-sm font-medium text-[var(--ink)]">Correo</p>
-                  <p className="text-sm text-[var(--ink-tertiary)]">{companyInfo?.email || 'eldice16@gmail.com'}</p>
+            <div className="lg:col-span-2 space-y-4">
+              <div className="bg-white rounded-[var(--radius-xl)] border border-[var(--border)] p-5 shadow-[var(--shadow-card)]">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-[var(--radius-lg)] bg-[var(--primary-light)] flex items-center justify-center shrink-0">
+                    <Mail size={20} className="text-[var(--primary)]" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-[var(--ink)]">Correo</p>
+                    <p className="text-sm text-[var(--ink-tertiary)]">{companyInfo?.email || 'eldice16@gmail.com'}</p>
+                  </div>
                 </div>
               </div>
-              <div className="flex items-center gap-3 p-4 rounded-[var(--radius-md)] bg-[var(--surface-1)] border border-[var(--border-default)]">
-                <Phone size={20} className="text-[var(--tint)]" />
-                <div>
-                  <p className="text-sm font-medium text-[var(--ink)]">Teléfono</p>
-                  <p className="text-sm text-[var(--ink-tertiary)]">{companyInfo?.phone || '(000) 000-0000'}</p>
+              <div className="bg-white rounded-[var(--radius-xl)] border border-[var(--border)] p-5 shadow-[var(--shadow-card)]">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-[var(--radius-lg)] bg-[var(--accent-light)] flex items-center justify-center shrink-0">
+                    <Phone size={20} className="text-[var(--accent)]" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-[var(--ink)]">Teléfono</p>
+                    <p className="text-sm text-[var(--ink-tertiary)]">{companyInfo?.phone || '(000) 000-0000'}</p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -288,6 +331,3 @@ export default function LandingPage() {
     </div>
   )
 }
-
-
-

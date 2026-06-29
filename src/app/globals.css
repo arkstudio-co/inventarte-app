@@ -1,60 +1,67 @@
 @import "tailwindcss";
 
 :root {
-  --paper: #F5F0E8;
-  --paper-elevated: #F0EAE0;
-  --paper-hover: #EBE4D8;
-  --ink: #1A1A1A;
-  --ink-secondary: #4A4A4A;
-  --ink-tertiary: #7A7A7A;
-  --ink-muted: #B0A89C;
-  --graphite: #4A4A4A;
-  --graphite-light: #D4CFC6;
-  --tint: #C4A35A;
-  --tint-hover: #B8923E;
-  --tint-light: #E8DCC8;
-  --accent: #2C5F7A;
-  --accent-hover: #234E66;
-  --accent-light: #D6E3EC;
-  --danger: #C44A4A;
-  --danger-light: #F5E0E0;
-  --success: #5B7A4A;
-  --success-light: #E0EDD6;
-  --warning: #C27A4A;
-  --warning-light: #F0E0D0;
+  --primary: #1A5F7A;
+  --primary-hover: #134B61;
+  --primary-active: #0E3A4D;
+  --primary-light: #E8F0F4;
 
-  --surface-0: var(--paper);
-  --surface-1: var(--paper-elevated);
-  --surface-2: #E8E0D4;
-  --surface-overlay: #FFFFFF;
+  --accent: #D4A04A;
+  --accent-hover: #C08E38;
+  --accent-light: #F8F0E0;
 
-  --border-default: rgba(26, 26, 26, 0.08);
-  --border-subtle: rgba(26, 26, 26, 0.04);
-  --border-strong: rgba(26, 26, 26, 0.16);
-  --border-focus: rgba(44, 95, 122, 0.4);
+  --ink: #1E1E2E;
+  --ink-secondary: #5A5B6E;
+  --ink-tertiary: #9092A8;
+  --ink-muted: #B8B9CC;
+
+  --surface: #FFFFFF;
+  --surface-muted: #F5F6F8;
+  --surface-raised: #FFFFFF;
+
+  --border: #E2E4E9;
+  --border-strong: #C8CAD4;
+
+  --success: #2E7D5C;
+  --success-light: #E6F4EE;
+  --warning: #D4943A;
+  --warning-light: #FBF0E0;
+  --danger: #C44040;
+  --danger-light: #F9E6E6;
+
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.04);
+  --shadow-card-hover: 0 4px 12px rgba(0,0,0,0.06);
+  --shadow-elevated: 0 8px 24px rgba(0,0,0,0.08);
+  --shadow-sticky: 0 2px 8px rgba(0,0,0,0.06);
 
   --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-full: 9999px;
 
-  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
-
-  --spacing-1: 4px;
-  --spacing-2: 8px;
-  --spacing-3: 12px;
-  --spacing-4: 16px;
-  --spacing-5: 20px;
-  --spacing-6: 24px;
-  --spacing-8: 32px;
-  --spacing-10: 40px;
-  --spacing-12: 48px;
-  --spacing-16: 64px;
 }
 
 body {
-  background-color: var(--paper);
+  background-color: var(--surface-muted);
   color: var(--ink);
   font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Backward compatibility aliases for existing dashboard pages */
+:root {
+  --tint: var(--accent);
+  --tint-hover: var(--accent-hover);
+  --tint-light: var(--accent-light);
+  --surface-0: var(--surface-muted);
+  --surface-1: var(--surface);
+  --surface-2: #E8E0D4;
+  --border-default: var(--border);
+  --border-subtle: #E2E4E9;
+  --border-strong: var(--border-strong);
+  --ink-muted: var(--ink-muted);
 }

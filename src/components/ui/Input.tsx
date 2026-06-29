@@ -19,14 +19,14 @@ export function Input({ label, error, className, id, ...props }: InputProps) {
       <input
         id={id}
         className={cn(
-          'w-full px-3 py-2 text-sm rounded-[var(--radius-sm)]',
-          'bg-[var(--surface-1)] text-[var(--ink)]',
-          'border border-[var(--border-default)]',
+          'w-full px-3.5 py-2.5 text-sm rounded-[var(--radius-md)]',
+          'bg-[var(--surface)] text-[var(--ink)]',
+          'border border-[var(--border)]',
           'placeholder:text-[var(--ink-muted)]',
           'hover:border-[var(--border-strong)]',
-          'focus:outline-none focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--border-focus)]',
-          'transition-colors duration-150',
-          error && 'border-[var(--danger)] focus:border-[var(--danger)] focus:ring-red-200',
+          'focus:outline-none focus:border-[var(--primary)] focus:shadow-[0_0_0_3px_rgba(26,95,122,0.12)]',
+          'transition-all duration-200',
+          error && 'border-[var(--danger)] focus:border-[var(--danger)] focus:shadow-[0_0_0_3px_rgba(196,64,64,0.12)]',
           className
         )}
         {...props}
