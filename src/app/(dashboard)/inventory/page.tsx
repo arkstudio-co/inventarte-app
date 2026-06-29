@@ -159,7 +159,8 @@ export default function InventoryPage() {
                   </div>
                   <div className="flex items-center gap-3 text-xs text-[var(--ink-tertiary)]">
                     <span className="font-mono">{product.sku}</span>
-                    <span>${product.price.toLocaleString()}</span>
+                    <span className="text-[var(--danger)]">C: ${product.cost.toLocaleString()}</span>
+                    <span className="text-[var(--success)]">V: ${product.price.toLocaleString()}</span>
                     {product.gramaje && <span>{product.gramaje}g</span>}
                     {product.suppliers && <span>{product.suppliers.name}</span>}
                   </div>

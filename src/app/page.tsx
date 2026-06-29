@@ -73,7 +73,7 @@ export default function LandingPage() {
       return
     }
 
-    router.push('/dashboard')
+    router.push('/wallet')
   }
 
   const handleContact = async (e: React.FormEvent) => {

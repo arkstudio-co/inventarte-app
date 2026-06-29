@@ -16,7 +16,7 @@ import {
 
 const navItems = [
   { href: '/wallet', label: 'Wallet', icon: Wallet },
-  { href: '/products', label: 'Productos', icon: Tags },
+  { href: '/inventory', label: 'Inventario', icon: Tags },
   { href: '/settings', label: 'Proveedores', icon: Settings },
   { href: '/colaboradores', label: 'Colaboradores', icon: UserCheck },
   { href: '/landing-admin', label: 'Landing Admin', icon: Palette },
@@ -47,7 +47,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       >
         <div className="flex flex-col h-full p-4">
           <div className="flex items-center justify-between mb-8">
-            <Link href="/dashboard" className="flex items-center gap-2">
+            <Link href="/wallet" className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-[var(--radius-sm)] bg-[var(--tint)] flex items-center justify-center">
                 <span className="text-sm font-bold text-[var(--ink)]">D</span>
               </div>

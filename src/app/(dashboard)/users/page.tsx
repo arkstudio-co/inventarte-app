@@ -16,7 +16,7 @@ const PERMISSION_LIST = [
   { value: 'edit_product', label: 'Editar productos' },
   { value: 'delete_product', label: 'Eliminar productos' },
   { value: 'manage_users', label: 'Gestionar usuarios' },
-  { value: 'view_dashboard', label: 'Ver dashboard' },
+
   { value: 'manage_landing', label: 'Gestionar landing' },
   { value: 'view_withdrawals', label: 'Ver retiros' },
   { value: 'create_withdrawals', label: 'Crear retiros' },

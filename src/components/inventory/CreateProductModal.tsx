@@ -30,7 +30,6 @@ export function CreateProductModal({ isOpen, onClose, onSuccess }: CreateProduct
     min_stock: 0,
     price: 0,
     cost: 0,
-    suggested_price: '',
     gramaje: '',
     supplier_id: '',
     image_url: '',
@@ -83,7 +82,6 @@ export function CreateProductModal({ isOpen, onClose, onSuccess }: CreateProduct
       min_stock: form.min_stock,
       price: form.price,
       cost: form.cost,
-      suggested_price: form.suggested_price ? Number(form.suggested_price) : null,
       gramaje: form.gramaje ? Number(form.gramaje) : null,
       supplier_id: form.supplier_id || null,
       image_url: form.image_url || null,
@@ -186,14 +184,6 @@ export function CreateProductModal({ isOpen, onClose, onSuccess }: CreateProduct
             value={form.cost}
             onChange={(e) => updateField('cost', Number(e.target.value))}
             required
-          />
-          <Input
-            id="suggested_price"
-            label="Precio sugerido mercado (opcional)"
-            type="number"
-            step="0.01"
-            value={form.suggested_price ?? ''}
-            onChange={(e) => updateField('suggested_price', e.target.value === '' ? '' : Number(e.target.value))}
           />
           <Input
             id="gramaje"

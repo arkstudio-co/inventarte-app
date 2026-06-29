@@ -17,8 +17,32 @@ import {
   ChevronRight,
   Mail,
   Phone,
+  Package,
+  CalendarDays,
+  X,
 } from 'lucide-react'
 import type { Supplier, AccountPayable } from '@/types/database'
+
+const MONTHS = [
+  { value: '1', label: 'Enero' },
+  { value: '2', label: 'Febrero' },
+  { value: '3', label: 'Marzo' },
+  { value: '4', label: 'Abril' },
+  { value: '5', label: 'Mayo' },
+  { value: '6', label: 'Junio' },
+  { value: '7', label: 'Julio' },
+  { value: '8', label: 'Agosto' },
+  { value: '9', label: 'Septiembre' },
+  { value: '10', label: 'Octubre' },
+  { value: '11', label: 'Noviembre' },
+  { value: '12', label: 'Diciembre' },
+]
+
+const currentYear = new Date().getFullYear()
+const YEARS = Array.from({ length: currentYear - 2020 + 2 }, (_, i) => ({
+  value: String(2020 + i),
+  label: String(2020 + i),
+}))
 
 export default function WalletPage() {
   const supabase = createClient()
@@ -28,6 +52,9 @@ export default function WalletPage() {
   const [ar, setAr] = useState<any[]>([])
   const [ap, setAp] = useState<AccountPayable[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
+
+  const [inventoryValue, setInventoryValue] = useState(0)
+  const [monthFilter, setMonthFilter] = useState<{ year: number; month: number } | null>(null)
 
   const [apModalOpen, setApModalOpen] = useState(false)
   const [apForm, setApForm] = useState({ supplier_id: '', amount: 0, description: '', due_date: '' })
@@ -39,29 +66,34 @@ export default function WalletPage() {
   const [paymentsTotal, setPaymentsTotal] = useState(0)
 
   const fetchAll = async () => {
-    const [incomeRes, expensesRes, arRes, apRes, suppliersRes, incomeTotalRes, expenseTotalRes, arTotalRes, paymentsRes] = await Promise.all([
-      supabase.from('stock_withdrawals').select('*, products(*)').eq('delivery_type', 'paid').order('withdrawal_date', { ascending: false }).limit(10),
-      supabase.from('stock_entries').select('*, products(*)').order('created_at', { ascending: false }).limit(10),
-      supabase.from('stock_withdrawals').select('*, products(*), sellers(*)').eq('delivery_type', 'pending').gt('pending_amount', 0).order('withdrawal_date', { ascending: false }).limit(10),
-      supabase.from('accounts_payable').select('*, suppliers(*)').eq('is_paid', false).order('created_at', { ascending: false }),
+    const startDate = monthFilter ? new Date(monthFilter.year, monthFilter.month - 1, 1).toISOString() : null
+    const endDate = monthFilter ? new Date(monthFilter.year, monthFilter.month, 1).toISOString() : null
+    const wf = (q: any, col: string) => startDate ? q.gte(col, startDate).lt(col, endDate) : q
+    const [incomeRes, expensesRes, arRes, apRes, suppliersRes, incomeTotalRes, expenseTotalRes, arTotalRes, paymentsRes, productsRes] = await Promise.all([
+      wf(supabase.from('stock_withdrawals').select('*, products(*)').eq('delivery_type', 'paid'), 'withdrawal_date').order('withdrawal_date', { ascending: false }).limit(10),
+      wf(supabase.from('stock_entries').select('*, products(*)'), 'created_at').order('created_at', { ascending: false }).limit(10),
+      wf(supabase.from('stock_withdrawals').select('*, products(*), sellers(*)').eq('delivery_type', 'pending').gt('pending_amount', 0), 'withdrawal_date').order('withdrawal_date', { ascending: false }).limit(10),
+      wf(supabase.from('accounts_payable').select('*, suppliers(*)').eq('is_paid', false), 'created_at').order('created_at', { ascending: false }),
       supabase.from('suppliers').select('*').order('name'),
-      supabase.from('stock_withdrawals').select('quantity, products!inner(price)').eq('delivery_type', 'paid'),
-      supabase.from('stock_entries').select('quantity, products!inner(cost)'),
-      supabase.from('stock_withdrawals').select('pending_amount').eq('delivery_type', 'pending').gt('pending_amount', 0),
-      supabase.from('payments').select('amount'),
+      wf(supabase.from('stock_withdrawals').select('quantity, products!inner(price)').eq('delivery_type', 'paid'), 'withdrawal_date'),
+      wf(supabase.from('stock_entries').select('quantity, products!inner(cost)'), 'created_at'),
+      wf(supabase.from('stock_withdrawals').select('pending_amount').eq('delivery_type', 'pending').gt('pending_amount', 0), 'withdrawal_date'),
+      wf(supabase.from('payments').select('amount'), 'created_at'),
+      supabase.from('products').select('price, stock'),
     ])
     if (incomeRes.data) setIncome(incomeRes.data)
     if (expensesRes.data) setExpenses(expensesRes.data)
     if (arRes.data) setAr(arRes.data)
     if (apRes.data) setAp(apRes.data as AccountPayable[])
     if (suppliersRes.data) setSuppliers(suppliersRes.data)
-    if (incomeTotalRes.data) setIncomeTotals(incomeTotalRes.data.reduce((s, i: any) => s + (i.quantity * (i.products?.price || 0)), 0))
-    if (expenseTotalRes.data) setExpenseTotals(expenseTotalRes.data.reduce((s, e: any) => s + (e.quantity * (e.products?.cost || 0)), 0))
-    if (arTotalRes.data) setArTotals(arTotalRes.data.reduce((s, a: any) => s + (a.pending_amount || 0), 0))
+    if (incomeTotalRes.data) setIncomeTotals(incomeTotalRes.data.reduce((s: number, i: any) => s + (i.quantity * (i.products?.price || 0)), 0))
+    if (expenseTotalRes.data) setExpenseTotals(expenseTotalRes.data.reduce((s: number, e: any) => s + (e.quantity * (e.products?.cost || 0)), 0))
+    if (arTotalRes.data) setArTotals(arTotalRes.data.reduce((s: number, a: any) => s + (a.pending_amount || 0), 0))
     if (paymentsRes.data) setPaymentsTotal(paymentsRes.data.reduce((s: number, p: any) => s + p.amount, 0))
+    if (productsRes.data) setInventoryValue(productsRes.data.reduce((s: number, p: any) => s + (p.price * p.stock), 0))
   }
 
-  useEffect(() => { fetchAll() }, [])
+  useEffect(() => { fetchAll() }, [monthFilter])
 
   const apTotal = ap.reduce((sum, a) => sum + a.amount, 0)
   const [apShowAll, setApShowAll] = useState(false)
@@ -97,7 +129,51 @@ export default function WalletPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold text-[var(--ink)]">Wallet</h1>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <h1 className="text-xl font-semibold text-[var(--ink)]">Wallet</h1>
+
+        {/* Month filter */}
+        <div className="flex items-center gap-2">
+          <CalendarDays size={16} className="text-[var(--ink-tertiary)]" />
+          <select
+            value={monthFilter?.month || ''}
+            onChange={(e) => {
+              const m = Number(e.target.value)
+              const y = monthFilter?.year || currentYear
+              setMonthFilter(m ? { year: y, month: m } : null)
+            }}
+            className="px-2.5 py-1.5 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-1)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors appearance-none cursor-pointer"
+          >
+            <option value="">Todos los meses</option>
+            {MONTHS.map((m) => (
+              <option key={m.value} value={m.value}>{m.label}</option>
+            ))}
+          </select>
+          <select
+            value={monthFilter?.year || ''}
+            onChange={(e) => {
+              const y = Number(e.target.value)
+              const m = monthFilter?.month || new Date().getMonth() + 1
+              setMonthFilter(y ? { year: y, month: m } : null)
+            }}
+            className="px-2.5 py-1.5 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-1)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors appearance-none cursor-pointer"
+          >
+            <option value="">Año</option>
+            {YEARS.map((y) => (
+              <option key={y.value} value={y.value}>{y.label}</option>
+            ))}
+          </select>
+          {monthFilter && (
+            <button
+              onClick={() => setMonthFilter(null)}
+              className="p-1.5 text-[var(--ink-tertiary)] hover:text-[var(--danger)] hover:bg-[var(--danger-light)] rounded-[var(--radius-sm)] transition-colors cursor-pointer"
+              title="Limpiar filtro"
+            >
+              <X size={16} />
+            </button>
+          )}
+        </div>
+      </div>
 
       {/* Balance hero + summary */}
       <div className="grid lg:grid-cols-3 gap-4">
@@ -305,6 +381,16 @@ export default function WalletPage() {
             </div>
           )}
         </SectionCard>
+      </div>
+
+      {/* Valor del Inventario */}
+      <div className="rounded-[var(--radius-md)] bg-[var(--surface-1)] border border-[var(--border-default)] p-4">
+        <div className="flex items-center gap-2 mb-1">
+          <Package size={18} className="text-[var(--ink-tertiary)]" />
+          <h3 className="text-sm font-semibold text-[var(--ink)]">Valor del Inventario</h3>
+        </div>
+        <p className="text-2xl font-bold text-[var(--ink)]">{formatCurrency(inventoryValue)}</p>
+        <p className="text-xs text-[var(--ink-tertiary)] mt-0.5">Suma total de precio × stock de todos los productos</p>
       </div>
 
       {/* Modal: Add AP */}

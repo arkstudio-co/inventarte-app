@@ -29,6 +29,28 @@ export default function ProductDetailPage() {
   const [entryObservations, setEntryObservations] = useState('')
   const [entryPaymentStatus, setEntryPaymentStatus] = useState<'paid' | 'pending'>('pending')
   const [isAddingStock, setIsAddingStock] = useState(false)
+  const [showInlineAddStock, setShowInlineAddStock] = useState(false)
+  const [inlineAddQty, setInlineAddQty] = useState(1)
+
+  const handleInlineAddStock = async () => {
+    if (inlineAddQty < 1) return
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    await supabase.from('stock_entries').insert({
+      product_id: params.id,
+      quantity: inlineAddQty,
+      payment_status: 'pending',
+      observations: 'Añadido desde edición',
+      created_by: user.id,
+    })
+    await supabase.rpc('increment_stock', {
+      p_product_id: params.id,
+      p_quantity: inlineAddQty,
+    })
+    setForm((prev) => ({ ...prev, stock: prev.stock + inlineAddQty }))
+    setShowInlineAddStock(false)
+    setInlineAddQty(1)
+  }
 
   const [form, setForm] = useState<ProductFormData>({
     name: '',
@@ -37,7 +59,6 @@ export default function ProductDetailPage() {
     min_stock: 0,
     price: 0,
     cost: 0,
-    suggested_price: '',
     gramaje: '',
     supplier_id: '',
     image_url: '',
@@ -60,7 +81,6 @@ export default function ProductDetailPage() {
           min_stock: product.min_stock,
           price: product.price,
           cost: product.cost,
-          suggested_price: product.suggested_price?.toString() || '',
           gramaje: product.gramaje?.toString() || '',
           supplier_id: product.supplier_id || '',
           image_url: product.image_url || '',
@@ -95,7 +115,6 @@ export default function ProductDetailPage() {
           min_stock: form.min_stock,
           price: form.price,
           cost: form.cost,
-          suggested_price: form.suggested_price ? Number(form.suggested_price) : null,
           gramaje: form.gramaje ? Number(form.gramaje) : null,
           supplier_id: form.supplier_id || null,
           image_url: form.image_url || null,
@@ -153,17 +172,49 @@ export default function ProductDetailPage() {
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <Input label="Stock" type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: Number(e.target.value) })} required />
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-[var(--ink-secondary)]">Stock</label>
+                  <button
+                    onClick={() => setShowInlineAddStock(true)}
+                    className="p-0.5 text-[var(--accent)] hover:text-[var(--accent-hover)] hover:bg-[var(--accent-light)] rounded-[var(--radius-sm)] transition-colors cursor-pointer"
+                    title="Añadir stock"
+                  >
+                    <Plus size={14} />
+                  </button>
+                </div>
+                <input
+                  type="number"
+                  value={form.stock}
+                  onChange={(e) => setForm({ ...form, stock: Number(e.target.value) })}
+                  className="w-full px-3 py-2 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-1)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+                  required
+                />
+                {showInlineAddStock && (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min={1}
+                      value={inlineAddQty}
+                      onChange={(e) => setInlineAddQty(Number(e.target.value))}
+                      className="w-20 px-2 py-1 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+                    />
+                    <button
+                      onClick={handleInlineAddStock}
+                      className="flex items-center justify-center w-6 h-6 text-xs font-bold text-white bg-[var(--accent)] rounded-[var(--radius-sm)] hover:opacity-90 transition-opacity cursor-pointer"
+                    >
+                      ✓
+                    </button>
+                  </div>
+                )}
+              </div>
               <Input label="Stock mínimo" type="number" value={form.min_stock} onChange={(e) => setForm({ ...form, min_stock: Number(e.target.value) })} required />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <Input label="Precio venta vendedores" type="number" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: Number(e.target.value) })} required />
               <Input label="Precio producción" type="number" step="0.01" value={form.cost} onChange={(e) => setForm({ ...form, cost: Number(e.target.value) })} required />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <Input label="Precio sugerido mercado (opcional)" type="number" step="0.01" value={form.suggested_price ?? ''} onChange={(e) => setForm({ ...form, suggested_price: e.target.value === '' ? '' : Number(e.target.value) })} />
-              <Input label="Gramaje (g)" type="number" step="0.01" value={form.gramaje ?? ''} onChange={(e) => setForm({ ...form, gramaje: e.target.value === '' ? '' : Number(e.target.value) })} />
-            </div>
+            <Input label="Gramaje (g)" type="number" step="0.01" value={form.gramaje ?? ''} onChange={(e) => setForm({ ...form, gramaje: e.target.value === '' ? '' : Number(e.target.value) })} />
             <Select
               label="Proveedor (opcional)"
               value={form.supplier_id || ''}
@@ -233,12 +284,6 @@ export default function ProductDetailPage() {
               <label className="text-xs font-medium text-[var(--ink-tertiary)] uppercase">Costo</label>
               <p className="text-lg font-semibold text-[var(--ink)]">${product.cost.toLocaleString()}</p>
             </div>
-            {product.suggested_price && (
-              <div>
-                <label className="text-xs font-medium text-[var(--ink-tertiary)] uppercase">Precio Sugerido</label>
-                <p className="text-lg font-semibold text-[var(--ink)]">${product.suggested_price.toLocaleString()}</p>
-              </div>
-            )}
             {product.gramaje && (
               <div>
                 <label className="text-xs font-medium text-[var(--ink-tertiary)] uppercase">Gramaje</label>

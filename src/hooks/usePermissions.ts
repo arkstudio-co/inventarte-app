@@ -4,11 +4,11 @@ import { useAuth } from '@/providers/AuthProvider'
 const PERMISSIONS: Record<string, string[]> = {
   admin: [
     'view_inventory', 'create_product', 'edit_product', 'delete_product',
-    'manage_users', 'view_dashboard', 'manage_landing', 'view_withdrawals',
+    'manage_users', 'manage_landing', 'view_withdrawals',
     'create_withdrawals',
   ],
   operative: [
-    'view_inventory', 'create_product', 'edit_product', 'view_dashboard',
+    'view_inventory', 'create_product', 'edit_product',
     'view_withdrawals', 'create_withdrawals',
   ],
 }

@@ -46,7 +46,6 @@ export interface Product {
   min_stock: number
   price: number
   cost: number
-  suggested_price: number | null
   gramaje: number | null
   supplier_id: string | null
   is_active: boolean
