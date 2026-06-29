@@ -184,7 +184,7 @@ export interface AccountPayable {
   suppliers?: Supplier | null
 }
 
-export interface OperationalExpense {
+export interface AdministrativeExpense {
   id: string
   description: string
   amount: number
