@@ -16,7 +16,7 @@ import {
 
 const navItems = [
   { href: '/wallet', label: 'Wallet', icon: Wallet },
-  { href: '/inventory', label: 'Inventario', icon: Tags },
+  { href: '/inventory', label: 'Movimientos', icon: Tags },
   { href: '/settings', label: 'Proveedores', icon: Settings },
   { href: '/colaboradores', label: 'Colaboradores', icon: UserCheck },
   { href: '/landing-admin', label: 'Landing Admin', icon: Palette },

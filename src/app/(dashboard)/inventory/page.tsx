@@ -60,7 +60,7 @@ export default function InventoryPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-[var(--ink)]">Inventario</h1>
+        <h1 className="text-xl font-semibold text-[var(--ink)]">Movimientos</h1>
         <Button onClick={() => setShowCreateModal(true)}>
           <Plus size={16} />
           Crear Producto

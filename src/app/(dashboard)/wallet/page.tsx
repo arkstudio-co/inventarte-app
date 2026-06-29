@@ -77,10 +77,12 @@ export default function WalletPage() {
   const [expenseTotals, setExpenseTotals] = useState(0)
   const [arTotals, setArTotals] = useState(0)
   const [arExpanded, setArExpanded] = useState<Record<string, boolean>>({})
+  const [arShowAll, setArShowAll] = useState(false)
   const [paymentsTotal, setPaymentsTotal] = useState(0)
   const [balanceIncome, setBalanceIncome] = useState(0)
   const [balancePayments, setBalancePayments] = useState(0)
   const [balanceExpenses, setBalanceExpenses] = useState(0)
+  const [balanceApTotal, setBalanceApTotal] = useState(0)
 
   const fetchAll = async () => {
     const now = new Date()
@@ -139,15 +141,15 @@ export default function WalletPage() {
     }
 
     const wf = (q: any, col: string) => startDate ? q.gte(col, startDate).lt(col, endDate) : q
-    const [incomeRes, expensesRes, arRes, apRes, suppliersRes, incomeTotalRes, expenseTotalRes, arTotalRes, paymentsRes, productsRes, balanceIncomeRes, balancePaymentsRes, balanceExpensesRes, adminExpensesRes, balanceAdminExpensesRes] = await Promise.all([
+    const [incomeRes, expensesRes, arRes, apRes, suppliersRes, incomeTotalRes, expenseTotalRes, arTotalRes, paymentsRes, productsRes, balanceIncomeRes, balancePaymentsRes, balanceExpensesRes, adminExpensesRes, balanceAdminExpensesRes, balanceApTotalRes] = await Promise.all([
       wf(supabase.from('stock_withdrawals').select('*, products(*)').eq('delivery_type', 'paid'), 'withdrawal_date').order('withdrawal_date', { ascending: false }).limit(10),
       wf(supabase.from('stock_entries').select('*, products(*)'), 'created_at').order('created_at', { ascending: false }).limit(10),
-      wf(supabase.from('stock_withdrawals').select('*, products(*), sellers(*)').eq('delivery_type', 'pending').gt('pending_amount', 0), 'withdrawal_date').order('withdrawal_date', { ascending: false }).limit(10),
+      supabase.from('stock_withdrawals').select('*, products(*), sellers(*)').eq('delivery_type', 'pending').gt('pending_amount', 0).order('withdrawal_date', { ascending: false }).limit(10),
       wf(supabase.from('accounts_payable').select('*, suppliers(*)').eq('is_paid', false), 'created_at').order('created_at', { ascending: false }),
       supabase.from('suppliers').select('*').order('name'),
       wf(supabase.from('stock_withdrawals').select('quantity, products!inner(price)').eq('delivery_type', 'paid'), 'withdrawal_date'),
       wf(supabase.from('stock_entries').select('quantity, products!inner(cost)'), 'created_at'),
-      wf(supabase.from('stock_withdrawals').select('pending_amount').eq('delivery_type', 'pending').gt('pending_amount', 0), 'withdrawal_date'),
+      supabase.from('stock_withdrawals').select('pending_amount').eq('delivery_type', 'pending').gt('pending_amount', 0),
       wf(supabase.from('payments').select('amount'), 'created_at'),
       supabase.from('products').select('price, stock'),
       supabase.from('stock_withdrawals').select('quantity, products!inner(price)').eq('delivery_type', 'paid'),
@@ -155,6 +157,7 @@ export default function WalletPage() {
       supabase.from('stock_entries').select('quantity, products!inner(cost)'),
       wf(supabase.from('administrative_expenses').select('*'), 'expense_date').order('expense_date', { ascending: false }),
       supabase.from('administrative_expenses').select('amount'),
+      supabase.from('accounts_payable').select('amount').eq('is_paid', false),
     ])
     if (incomeRes.data) setIncome(incomeRes.data)
     if (expensesRes.data) setExpenses(expensesRes.data)
@@ -172,15 +175,16 @@ export default function WalletPage() {
     if (adminExpensesRes.data) setAdminExpenses(adminExpensesRes.data as AdministrativeExpense[])
     if (adminExpensesRes.data) setAdminExpenseTotals(adminExpensesRes.data.reduce((s: number, o: any) => s + o.amount, 0))
     if (balanceAdminExpensesRes.data) setBalanceAdminExpenses(balanceAdminExpensesRes.data.reduce((s: number, o: any) => s + o.amount, 0))
+    if (balanceApTotalRes.data) setBalanceApTotal(balanceApTotalRes.data.reduce((s: number, a: any) => s + a.amount, 0))
   }
 
   useEffect(() => { fetchAll() }, [filterMode, filterMonth, filterYear, customStart, customEnd])
 
   const apTotal = ap.reduce((sum, a) => sum + a.amount, 0)
   const [apShowAll, setApShowAll] = useState(false)
-  const netArTotals = Math.max(0, arTotals - paymentsTotal)
+  const netArTotals = Math.max(0, arTotals - balancePayments)
   const gastosTotal = expenseTotals + adminExpenseTotals + apTotal
-  const balance = balanceIncome + balancePayments - balanceAdminExpenses
+  const balance = balanceIncome + balancePayments - balanceExpenses - balanceAdminExpenses - balanceApTotal
   const isDefault = filterMode === 'month' && filterMonth === now.getMonth() + 1 && filterYear === now.getFullYear()
   const showDateInputs = filterMode === 'custom' || filterMode === 'last30' || filterMode === 'last15' || filterMode === 'last7' || filterMode === 'today' || filterMode === 'yesterday'
   const showPersonalized = hasCustomized || (filterMode === 'month' && !isDefault)
@@ -391,9 +395,6 @@ export default function WalletPage() {
         <div className="rounded-[var(--radius-md)] bg-[var(--tint)] border border-[var(--tint)] p-5 flex flex-col justify-center items-center text-center">
           <p className="text-xs font-medium text-[var(--ink)]/70 uppercase tracking-wide mb-1">Saldo Disponible</p>
           <p className="text-3xl font-bold text-[var(--ink)]">{formatCurrency(balance)}</p>
-          <p className="text-xs text-[var(--ink)]/60 mt-1">
-            Ingresos − Por Cobrar − Gastos Administrativos
-          </p>
         </div>
       </div>
 
@@ -403,28 +404,35 @@ export default function WalletPage() {
           {income.length === 0 && paymentsTotal === 0 ? (
             <p className="text-sm text-[var(--ink-tertiary)] py-4 text-center">No hay ingresos registrados</p>
           ) : (
-            <div className="divide-y divide-[var(--border-subtle)]">
-              {income.map((i) => (
-                <div key={i.id} className="py-2.5 flex items-center justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-[var(--ink)] truncate">{i.person_name}</p>
-                    <p className="text-xs text-[var(--ink-tertiary)]">
-                      {i.products?.name} • {i.quantity} und • {new Date(i.withdrawal_date).toLocaleDateString('es-CO')}
-                    </p>
+            <div className="space-y-3 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-[var(--ink-secondary)]">Ventas directas</span>
+                <span className="font-semibold text-[var(--success)]">{formatCurrency(incomeTotals)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[var(--ink-secondary)]">Abonos de vendedores</span>
+                <span className="font-semibold text-[var(--success)]">{formatCurrency(paymentsTotal)}</span>
+              </div>
+              <div className="flex items-center justify-between font-semibold pt-2 border-t border-[var(--border-subtle)]">
+                <span className="text-[var(--ink)]">Total Ingresos</span>
+                <span className="text-[var(--success)]">{formatCurrency(incomeTotals + paymentsTotal)}</span>
+              </div>
+              {incomeTotals > 0 && paymentsTotal > 0 && (
+                <div className="space-y-1.5 pt-1">
+                  <div className="flex h-2 rounded-full bg-[var(--surface-2)] overflow-hidden">
+                    <div
+                      className="bg-[var(--success)] rounded-l-full transition-all"
+                      style={{ width: `${(incomeTotals / (incomeTotals + paymentsTotal)) * 100}%` }}
+                    />
+                    <div
+                      className="bg-[var(--accent)] rounded-r-full transition-all"
+                      style={{ width: `${(paymentsTotal / (incomeTotals + paymentsTotal)) * 100}%` }}
+                    />
                   </div>
-                  <p className="text-sm font-bold text-[var(--success)] shrink-0">
-                    +{formatCurrency(i.quantity * (i.products?.price || 0))}
-                  </p>
-                </div>
-              ))}
-              {paymentsTotal > 0 && (
-                <div className="py-2.5 flex items-center justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-[var(--ink)] truncate">Pagos recibidos de vendedores</p>
+                  <div className="flex justify-between text-[10px] text-[var(--ink-tertiary)]">
+                    <span>Ventas directas {((incomeTotals / (incomeTotals + paymentsTotal)) * 100).toFixed(0)}%</span>
+                    <span>{((paymentsTotal / (incomeTotals + paymentsTotal)) * 100).toFixed(0)}% Abonos</span>
                   </div>
-                  <p className="text-sm font-bold text-[var(--success)] shrink-0">
-                    +{formatCurrency(paymentsTotal)}
-                  </p>
                 </div>
               )}
             </div>
@@ -435,55 +443,65 @@ export default function WalletPage() {
           {ar.length === 0 ? (
             <p className="text-sm text-[var(--ink-tertiary)] py-4 text-center">No hay cuentas por cobrar</p>
           ) : (
-            <div className="divide-y divide-[var(--border-subtle)]">
-              {ar.map((a) => {
-                const isExpanded = arExpanded[a.id]
-                const seller = a.sellers
-                return (
-                  <div key={a.id}>
-                    <button
-                      onClick={() => setArExpanded((prev) => ({ ...prev, [a.id]: !prev[a.id] }))}
-                      className="w-full py-2.5 flex items-center justify-between gap-2 hover:bg-[var(--surface-2)]/30 transition-colors cursor-pointer text-left"
-                    >
-                      <div className="min-w-0 flex-1 flex items-center gap-2">
-                        {isExpanded ? <ChevronDown size={14} className="text-[var(--ink-tertiary)] shrink-0" /> : <ChevronRight size={14} className="text-[var(--ink-tertiary)] shrink-0" />}
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-[var(--ink)] truncate">{seller?.name || a.person_name}</p>
-                          <p className="text-xs text-[var(--ink-tertiary)]">
-                            {a.products?.name} • {new Date(a.withdrawal_date).toLocaleDateString('es-CO')}
-                          </p>
+            <>
+              <div className="divide-y divide-[var(--border-subtle)]">
+                {(arShowAll ? ar : ar.slice(0, 2)).map((a) => {
+                  const isExpanded = arExpanded[a.id]
+                  const seller = a.sellers
+                  return (
+                    <div key={a.id}>
+                      <button
+                        onClick={() => setArExpanded((prev) => ({ ...prev, [a.id]: !prev[a.id] }))}
+                        className="w-full py-2.5 flex items-center justify-between gap-2 hover:bg-[var(--surface-2)]/30 transition-colors cursor-pointer text-left"
+                      >
+                        <div className="min-w-0 flex-1 flex items-center gap-2">
+                          {isExpanded ? <ChevronDown size={14} className="text-[var(--ink-tertiary)] shrink-0" /> : <ChevronRight size={14} className="text-[var(--ink-tertiary)] shrink-0" />}
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-[var(--ink)] truncate">{seller?.name || a.person_name}</p>
+                            <p className="text-xs text-[var(--ink-tertiary)]">
+                              {a.products?.name} • {new Date(a.withdrawal_date).toLocaleDateString('es-CO')}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                      <p className="text-sm font-bold text-[var(--accent)] shrink-0">
-                        {formatCurrency(a.pending_amount)}
-                      </p>
-                    </button>
-                    {isExpanded && (
-                      <div className="px-4 pb-3 pt-1 space-y-1.5 text-xs text-[var(--ink-secondary)] bg-[var(--surface-0)] rounded-[var(--radius-sm)] mx-1 mb-2">
-                        {seller ? (
-                          <>
-                            <p><span className="font-medium text-[var(--ink)]">Nombre:</span> {seller.name}</p>
-                            {seller.email && <p className="flex items-center gap-1"><Mail size={12} /> {seller.email}</p>}
-                            {seller.phone && <p className="flex items-center gap-1"><Phone size={12} /> {seller.phone}</p>}
-                            {seller.notes && <p><span className="font-medium text-[var(--ink)]">Notas:</span> {seller.notes}</p>}
-                          </>
-                        ) : (
-                          <>
-                            <p><span className="font-medium text-[var(--ink)]">Nombre:</span> {a.person_name}</p>
-                            {a.person_email && <p className="flex items-center gap-1"><Mail size={12} /> {a.person_email}</p>}
-                          </>
-                        )}
-                        <p><span className="font-medium text-[var(--ink)]">Producto:</span> {a.products?.name}</p>
-                        <p><span className="font-medium text-[var(--ink)]">Cantidad:</span> {a.quantity} und</p>
-                        <p><span className="font-medium text-[var(--ink)]">Fecha de retiro:</span> {new Date(a.withdrawal_date).toLocaleDateString('es-CO')}</p>
-                        <p><span className="font-medium text-[var(--ink)]">Monto pendiente:</span> {formatCurrency(a.pending_amount)}</p>
-                        {a.observations && <p><span className="font-medium text-[var(--ink)]">Observaciones:</span> {a.observations}</p>}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
+                        <p className="text-sm font-bold text-[var(--accent)] shrink-0">
+                          {formatCurrency(a.pending_amount)}
+                        </p>
+                      </button>
+                      {isExpanded && (
+                        <div className="px-4 pb-3 pt-1 space-y-1.5 text-xs text-[var(--ink-secondary)] bg-[var(--surface-0)] rounded-[var(--radius-sm)] mx-1 mb-2">
+                          {seller ? (
+                            <>
+                              <p><span className="font-medium text-[var(--ink)]">Nombre:</span> {seller.name}</p>
+                              {seller.email && <p className="flex items-center gap-1"><Mail size={12} /> {seller.email}</p>}
+                              {seller.phone && <p className="flex items-center gap-1"><Phone size={12} /> {seller.phone}</p>}
+                              {seller.notes && <p><span className="font-medium text-[var(--ink)]">Notas:</span> {seller.notes}</p>}
+                            </>
+                          ) : (
+                            <>
+                              <p><span className="font-medium text-[var(--ink)]">Nombre:</span> {a.person_name}</p>
+                              {a.person_email && <p className="flex items-center gap-1"><Mail size={12} /> {a.person_email}</p>}
+                            </>
+                          )}
+                          <p><span className="font-medium text-[var(--ink)]">Producto:</span> {a.products?.name}</p>
+                          <p><span className="font-medium text-[var(--ink)]">Cantidad:</span> {a.quantity} und</p>
+                          <p><span className="font-medium text-[var(--ink)]">Fecha de retiro:</span> {new Date(a.withdrawal_date).toLocaleDateString('es-CO')}</p>
+                          <p><span className="font-medium text-[var(--ink)]">Monto pendiente:</span> {formatCurrency(a.pending_amount)}</p>
+                          {a.observations && <p><span className="font-medium text-[var(--ink)]">Observaciones:</span> {a.observations}</p>}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+              {ar.length > 2 && (
+                <button
+                  onClick={() => setArShowAll(!arShowAll)}
+                  className="w-full mt-2 py-2 text-xs text-[var(--accent)] hover:text-[var(--accent-hover)] hover:underline cursor-pointer text-center"
+                >
+                  {arShowAll ? 'Ver menos' : 'Ver más'}
+                </button>
+              )}
+            </>
           )}
         </SectionCard>
       </div>
