@@ -507,7 +507,7 @@ export default function WalletPage() {
         {/* Summary rows */}
         <div className="space-y-1 pb-3 border-b border-[var(--border-subtle)]">
           <div className="flex items-center justify-between text-sm">
-            <span className="text-[var(--ink-secondary)]">Gastos Operativos</span>
+            <span className="text-[var(--ink-secondary)]">Gastos Operativos (Inventario)</span>
             <span className="font-semibold text-[var(--danger)]">{formatCurrency(expenseTotals)}</span>
           </div>
           <div className="flex items-center justify-between text-sm">
@@ -526,10 +526,10 @@ export default function WalletPage() {
           </div>
         </div>
 
-        {/* Gastos Operativos detail */}
+        {/* Gastos Operativos (Inventario) detail */}
         {expenses.length > 0 && (
           <div className="pt-3">
-            <p className="text-xs font-semibold text-[var(--ink-tertiary)] uppercase tracking-wide mb-2">Gastos Operativos</p>
+            <p className="text-xs font-semibold text-[var(--ink-tertiary)] uppercase tracking-wide mb-2">Gastos Operativos (Inventario)</p>
             <div className="divide-y divide-[var(--border-subtle)]">
               {expenses.slice(0, adminShowAll ? undefined : 2).map((e) => (
                 <div key={e.id} className="py-2 flex items-center justify-between gap-2">
