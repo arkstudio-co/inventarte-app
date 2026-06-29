@@ -53,8 +53,16 @@ export default function WalletPage() {
   const [ap, setAp] = useState<AccountPayable[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
 
+  type FilterMode = 'month' | 'today' | 'yesterday' | 'last30' | 'last15' | 'last7' | 'custom' | 'all'
+
+  const now = new Date()
+  const [filterMode, setFilterMode] = useState<FilterMode>('month')
+  const [filterMonth, setFilterMonth] = useState(now.getMonth() + 1)
+  const [filterYear, setFilterYear] = useState(now.getFullYear())
+  const [customStart, setCustomStart] = useState('')
+  const [customEnd, setCustomEnd] = useState('')
+  const [hasCustomized, setHasCustomized] = useState(false)
   const [inventoryValue, setInventoryValue] = useState(0)
-  const [monthFilter, setMonthFilter] = useState<{ year: number; month: number } | null>(null)
 
   const [apModalOpen, setApModalOpen] = useState(false)
   const [apForm, setApForm] = useState({ supplier_id: '', amount: 0, description: '', due_date: '' })
@@ -64,12 +72,68 @@ export default function WalletPage() {
   const [arTotals, setArTotals] = useState(0)
   const [arExpanded, setArExpanded] = useState<Record<string, boolean>>({})
   const [paymentsTotal, setPaymentsTotal] = useState(0)
+  const [balanceIncome, setBalanceIncome] = useState(0)
+  const [balancePayments, setBalancePayments] = useState(0)
+  const [balanceExpenses, setBalanceExpenses] = useState(0)
 
   const fetchAll = async () => {
-    const startDate = monthFilter ? new Date(monthFilter.year, monthFilter.month - 1, 1).toISOString() : null
-    const endDate = monthFilter ? new Date(monthFilter.year, monthFilter.month, 1).toISOString() : null
+    const now = new Date()
+    let startDate: string | null = null
+    let endDate: string | null = null
+
+    switch (filterMode) {
+      case 'month':
+        if (filterMonth === 0) {
+          startDate = new Date(filterYear, 0, 1).toISOString()
+          endDate = new Date(filterYear + 1, 0, 1).toISOString()
+        } else {
+          startDate = new Date(filterYear, filterMonth - 1, 1).toISOString()
+          endDate = new Date(filterYear, filterMonth, 1).toISOString()
+        }
+        break
+      case 'today': {
+        const todayStart = new Date()
+        todayStart.setHours(0, 0, 0, 0)
+        startDate = todayStart.toISOString()
+        const tomorrow = new Date(todayStart)
+        tomorrow.setDate(tomorrow.getDate() + 1)
+        endDate = tomorrow.toISOString()
+        break
+      }
+      case 'yesterday': {
+        const yesterdayStart = new Date()
+        yesterdayStart.setDate(yesterdayStart.getDate() - 1)
+        yesterdayStart.setHours(0, 0, 0, 0)
+        startDate = yesterdayStart.toISOString()
+        const todayMidnight = new Date()
+        todayMidnight.setHours(0, 0, 0, 0)
+        endDate = todayMidnight.toISOString()
+        break
+      }
+      case 'last30':
+        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()
+        endDate = now.toISOString()
+        break
+      case 'last15':
+        startDate = new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000).toISOString()
+        endDate = now.toISOString()
+        break
+      case 'last7':
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
+        endDate = now.toISOString()
+        break
+      case 'custom':
+        if (customStart && customEnd) {
+          startDate = new Date(customStart + 'T00:00:00').toISOString()
+          const end = new Date(customEnd)
+          end.setDate(end.getDate() + 1)
+          endDate = end.toISOString()
+        }
+        break
+    }
+
     const wf = (q: any, col: string) => startDate ? q.gte(col, startDate).lt(col, endDate) : q
-    const [incomeRes, expensesRes, arRes, apRes, suppliersRes, incomeTotalRes, expenseTotalRes, arTotalRes, paymentsRes, productsRes] = await Promise.all([
+    const [incomeRes, expensesRes, arRes, apRes, suppliersRes, incomeTotalRes, expenseTotalRes, arTotalRes, paymentsRes, productsRes, balanceIncomeRes, balancePaymentsRes, balanceExpensesRes] = await Promise.all([
       wf(supabase.from('stock_withdrawals').select('*, products(*)').eq('delivery_type', 'paid'), 'withdrawal_date').order('withdrawal_date', { ascending: false }).limit(10),
       wf(supabase.from('stock_entries').select('*, products(*)'), 'created_at').order('created_at', { ascending: false }).limit(10),
       wf(supabase.from('stock_withdrawals').select('*, products(*), sellers(*)').eq('delivery_type', 'pending').gt('pending_amount', 0), 'withdrawal_date').order('withdrawal_date', { ascending: false }).limit(10),
@@ -80,6 +144,9 @@ export default function WalletPage() {
       wf(supabase.from('stock_withdrawals').select('pending_amount').eq('delivery_type', 'pending').gt('pending_amount', 0), 'withdrawal_date'),
       wf(supabase.from('payments').select('amount'), 'created_at'),
       supabase.from('products').select('price, stock'),
+      supabase.from('stock_withdrawals').select('quantity, products!inner(price)').eq('delivery_type', 'paid'),
+      supabase.from('payments').select('amount'),
+      supabase.from('stock_entries').select('quantity, products!inner(cost)'),
     ])
     if (incomeRes.data) setIncome(incomeRes.data)
     if (expensesRes.data) setExpenses(expensesRes.data)
@@ -91,14 +158,20 @@ export default function WalletPage() {
     if (arTotalRes.data) setArTotals(arTotalRes.data.reduce((s: number, a: any) => s + (a.pending_amount || 0), 0))
     if (paymentsRes.data) setPaymentsTotal(paymentsRes.data.reduce((s: number, p: any) => s + p.amount, 0))
     if (productsRes.data) setInventoryValue(productsRes.data.reduce((s: number, p: any) => s + (p.price * p.stock), 0))
+    if (balanceIncomeRes.data) setBalanceIncome(balanceIncomeRes.data.reduce((s: number, i: any) => s + (i.quantity * (i.products?.price || 0)), 0))
+    if (balancePaymentsRes.data) setBalancePayments(balancePaymentsRes.data.reduce((s: number, p: any) => s + p.amount, 0))
+    if (balanceExpensesRes.data) setBalanceExpenses(balanceExpensesRes.data.reduce((s: number, e: any) => s + (e.quantity * (e.products?.cost || 0)), 0))
   }
 
-  useEffect(() => { fetchAll() }, [monthFilter])
+  useEffect(() => { fetchAll() }, [filterMode, filterMonth, filterYear, customStart, customEnd])
 
   const apTotal = ap.reduce((sum, a) => sum + a.amount, 0)
   const [apShowAll, setApShowAll] = useState(false)
   const netArTotals = Math.max(0, arTotals - paymentsTotal)
-  const balance = incomeTotals + paymentsTotal - expenseTotals
+  const balance = balanceIncome + balancePayments
+  const isDefault = filterMode === 'month' && filterMonth === now.getMonth() + 1 && filterYear === now.getFullYear()
+  const showDateInputs = filterMode === 'custom' || filterMode === 'last30' || filterMode === 'last15' || filterMode === 'last7' || filterMode === 'today' || filterMode === 'yesterday'
+  const showPersonalized = hasCustomized || (filterMode === 'month' && !isDefault)
 
   const handleCreateAp = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -132,42 +205,125 @@ export default function WalletPage() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-xl font-semibold text-[var(--ink)]">Wallet</h1>
 
-        {/* Month filter */}
+        {/* Date filter */}
         <div className="flex items-center gap-2">
           <CalendarDays size={16} className="text-[var(--ink-tertiary)]" />
           <select
-            value={monthFilter?.month || ''}
+            value={showPersonalized ? 'personalized' : filterMode}
             onChange={(e) => {
-              const m = Number(e.target.value)
-              const y = monthFilter?.year || currentYear
-              setMonthFilter(m ? { year: y, month: m } : null)
+              const mode = e.target.value
+              if (mode === 'personalized') return
+              setHasCustomized(false)
+              setFilterMode(mode as FilterMode)
+              if (mode === 'custom') {
+                const d = new Date()
+                setCustomEnd(d.toISOString().split('T')[0])
+                setCustomStart(new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0])
+              }
+              if (mode === 'last30' || mode === 'last15' || mode === 'last7') {
+                const d = new Date()
+                const days = mode === 'last30' ? 30 : mode === 'last15' ? 15 : 7
+                const start = new Date(d.getTime() - days * 24 * 60 * 60 * 1000)
+                setCustomEnd(d.toISOString().split('T')[0])
+                setCustomStart(start.toISOString().split('T')[0])
+              }
+              if (mode === 'today') {
+                const d = new Date()
+                const today = d.toISOString().split('T')[0]
+                setCustomStart(today)
+                setCustomEnd(today)
+              }
+              if (mode === 'yesterday') {
+                const d = new Date()
+                const today = d.toISOString().split('T')[0]
+                const yesterday = new Date(d)
+                yesterday.setDate(yesterday.getDate() - 1)
+                setCustomStart(yesterday.toISOString().split('T')[0])
+                setCustomEnd(today)
+              }
+              if (mode === 'month') {
+                const d = new Date()
+                setFilterMonth(d.getMonth() + 1)
+                setFilterYear(d.getFullYear())
+              }
             }}
             className="px-2.5 py-1.5 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-1)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors appearance-none cursor-pointer"
           >
-            <option value="">Todos los meses</option>
-            {MONTHS.map((m) => (
-              <option key={m.value} value={m.value}>{m.label}</option>
-            ))}
+            <option value="month">Este mes</option>
+            {showPersonalized && (
+              <option value="personalized" disabled>Personalizado</option>
+            )}
+            <option value="today">Hoy</option>
+            <option value="yesterday">Ayer</option>
+            <option value="last7">Últimos 7 días</option>
+            <option value="last15">Últimos 15 días</option>
+            <option value="last30">Últimos 30 días</option>
+            <option value="custom">Personalizar</option>
+            <option value="all">Todo el período</option>
           </select>
-          <select
-            value={monthFilter?.year || ''}
-            onChange={(e) => {
-              const y = Number(e.target.value)
-              const m = monthFilter?.month || new Date().getMonth() + 1
-              setMonthFilter(y ? { year: y, month: m } : null)
-            }}
-            className="px-2.5 py-1.5 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-1)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors appearance-none cursor-pointer"
-          >
-            <option value="">Año</option>
-            {YEARS.map((y) => (
-              <option key={y.value} value={y.value}>{y.label}</option>
-            ))}
-          </select>
-          {monthFilter && (
+
+
+          {filterMode === 'month' && (
+            <>
+              <select
+                value={filterMonth}
+                onChange={(e) => setFilterMonth(Number(e.target.value))}
+                className="px-2.5 py-1.5 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-1)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors appearance-none cursor-pointer"
+              >
+                <option value="0">Todos los meses</option>
+                {MONTHS.map((m) => (
+                  <option key={m.value} value={m.value}>{m.label}</option>
+                ))}
+              </select>
+              <select
+                value={filterYear}
+                onChange={(e) => setFilterYear(Number(e.target.value))}
+                className="px-2.5 py-1.5 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-1)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors appearance-none cursor-pointer"
+              >
+                {YEARS.map((y) => (
+                  <option key={y.value} value={y.value}>{y.label}</option>
+                ))}
+              </select>
+            </>
+          )}
+
+          {showDateInputs && (
+            <>
+              <input
+                type="date"
+                value={customStart}
+                onChange={(e) => {
+                  setCustomStart(e.target.value)
+                  if (filterMode !== 'custom') setFilterMode('custom')
+                  setHasCustomized(true)
+                }}
+                className="px-2.5 py-1.5 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-1)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+              />
+              <span className="text-[var(--ink-tertiary)] text-sm">—</span>
+              <input
+                type="date"
+                value={customEnd}
+                onChange={(e) => {
+                  setCustomEnd(e.target.value)
+                  if (filterMode !== 'custom') setFilterMode('custom')
+                  setHasCustomized(true)
+                }}
+                className="px-2.5 py-1.5 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-1)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+              />
+            </>
+          )}
+
+          {!isDefault && (
             <button
-              onClick={() => setMonthFilter(null)}
+              onClick={() => {
+                const d = new Date()
+                setHasCustomized(false)
+                setFilterMode('month')
+                setFilterMonth(d.getMonth() + 1)
+                setFilterYear(d.getFullYear())
+              }}
               className="p-1.5 text-[var(--ink-tertiary)] hover:text-[var(--danger)] hover:bg-[var(--danger-light)] rounded-[var(--radius-sm)] transition-colors cursor-pointer"
-              title="Limpiar filtro"
+              title="Restablecer filtro predeterminado"
             >
               <X size={16} />
             </button>
@@ -177,18 +333,12 @@ export default function WalletPage() {
 
       {/* Balance hero + summary */}
       <div className="grid lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 rounded-[var(--radius-md)] bg-[var(--surface-1)] border border-[var(--border-default)] p-5 grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="lg:col-span-2 rounded-[var(--radius-md)] bg-[var(--surface-1)] border border-[var(--border-default)] p-5 grid grid-cols-2 sm:grid-cols-3 gap-4">
           <div>
             <p className="text-xs text-[var(--ink-tertiary)] uppercase tracking-wide flex items-center gap-1 mb-1">
               <TrendingUp size={14} className="text-[var(--success)]" /> Ingresos
             </p>
             <p className="text-lg font-bold text-[var(--success)]">{formatCurrency(incomeTotals + paymentsTotal)}</p>
-          </div>
-          <div>
-            <p className="text-xs text-[var(--ink-tertiary)] uppercase tracking-wide flex items-center gap-1 mb-1">
-              <TrendingDown size={14} className="text-[var(--danger)]" /> Egresos
-            </p>
-            <p className="text-lg font-bold text-[var(--danger)]">{formatCurrency(expenseTotals)}</p>
           </div>
           <div>
             <p className="text-xs text-[var(--ink-tertiary)] uppercase tracking-wide flex items-center gap-1 mb-1">
@@ -208,7 +358,7 @@ export default function WalletPage() {
           <p className="text-xs font-medium text-[var(--ink)]/70 uppercase tracking-wide mb-1">Saldo Disponible</p>
           <p className="text-3xl font-bold text-[var(--ink)]">{formatCurrency(balance)}</p>
           <p className="text-xs text-[var(--ink)]/60 mt-1">
-            Ingresos − Egresos
+            Ingresos − Por Cobrar
           </p>
         </div>
       </div>
@@ -306,9 +456,9 @@ export default function WalletPage() {
 
       {/* Expenses + AP */}
       <div className="grid lg:grid-cols-2 gap-4">
-        <SectionCard title="Egresos" icon={TrendingDown} iconColor="text-[var(--danger)]">
+        <SectionCard title="Inversión en Inventario" icon={TrendingDown} iconColor="text-[var(--danger)]">
           {expenses.length === 0 ? (
-            <p className="text-sm text-[var(--ink-tertiary)] py-4 text-center">No hay egresos registrados</p>
+            <p className="text-sm text-[var(--ink-tertiary)] py-4 text-center">No hay inversión en inventario registrada</p>
           ) : (
             <div className="divide-y divide-[var(--border-subtle)]">
               {expenses.map((e) => (
@@ -442,3 +592,5 @@ function SectionCard({ title, icon: Icon, iconColor, children, action }: {
     </div>
   )
 }
+
+
