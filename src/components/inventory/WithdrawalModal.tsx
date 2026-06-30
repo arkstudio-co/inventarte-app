@@ -18,12 +18,14 @@ interface WithdrawalModalProps {
 export function WithdrawalModal({ productId, onClose, onSuccess }: WithdrawalModalProps) {
   const supabase = createClient()
   const [product, setProduct] = useState<Product | null>(null)
+  const [products, setProducts] = useState<Product[]>([])
   const [sellers, setSellers] = useState<Seller[]>([])
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [selectedProductId, setSelectedProductId] = useState(productId || '')
 
   const [form, setForm] = useState<WithdrawalFormData>({
-    product_id: productId,
+    product_id: productId || '',
     quantity: 1,
     person_name: '',
     person_email: '',
@@ -34,14 +36,33 @@ export function WithdrawalModal({ productId, onClose, onSuccess }: WithdrawalMod
   const [sellerId, setSellerId] = useState('')
 
   useEffect(() => {
-    Promise.all([
-      supabase.from('products').select('*').eq('id', productId).single(),
-      supabase.from('sellers').select('*').eq('is_active', true).order('name'),
-    ]).then(([productRes, sellersRes]) => {
-      if (productRes.data) setProduct(productRes.data)
+    const sellersPromise = supabase.from('sellers').select('*').eq('is_active', true).order('name')
+
+    const load = async () => {
+      const [sellersRes, productsRes] = await Promise.all([
+        sellersPromise,
+        productId
+          ? supabase.from('products').select('*').eq('id', productId).single()
+          : supabase.from('products').select('*').eq('is_active', true).order('name'),
+      ])
+
       if (sellersRes.data) setSellers(sellersRes.data)
-    })
+      if (productId && productsRes.data) {
+        setProduct(productsRes.data as Product)
+      } else if (!productId && productsRes.data) {
+        setProducts(productsRes.data as Product[])
+      }
+    }
+
+    load()
   }, [productId])
+
+  const handleProductChange = (id: string) => {
+    setSelectedProductId(id)
+    const prod = products.find((p) => p.id === id)
+    if (prod) setProduct(prod)
+    setForm({ ...form, product_id: id })
+  }
 
   const handleSellerChange = (id: string) => {
     setSellerId(id)
@@ -54,6 +75,11 @@ export function WithdrawalModal({ productId, onClose, onSuccess }: WithdrawalMod
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+
+    if (!selectedProductId && !productId) {
+      setError('Debes seleccionar un producto')
+      return
+    }
 
     const result = withdrawalSchema.safeParse(form)
     if (!result.success) {
@@ -96,11 +122,24 @@ export function WithdrawalModal({ productId, onClose, onSuccess }: WithdrawalMod
   return (
     <Modal isOpen onClose={onClose} title="Retiro de Stock">
       <form onSubmit={handleSubmit} className="space-y-4">
-        {product && (
+        {productId && product ? (
           <div className="p-3 rounded-[var(--radius-sm)] bg-[var(--surface-0)] border border-[var(--border-subtle)]">
             <p className="text-sm font-medium text-[var(--ink)]">{product.name}</p>
             <p className="text-xs text-[var(--ink-tertiary)]">Stock actual: {product.stock} uds</p>
           </div>
+        ) : (
+          <Select
+            label="Producto"
+            value={selectedProductId}
+            onChange={(e) => handleProductChange(e.target.value)}
+            options={products
+              .filter((p) => p.stock > 0)
+              .map((p) => ({
+                value: p.id,
+                label: `${p.name} (${p.sku}) — Stock: ${p.stock} uds`,
+              }))}
+            placeholder="Seleccionar producto"
+          />
         )}
 
         <Input
@@ -108,10 +147,15 @@ export function WithdrawalModal({ productId, onClose, onSuccess }: WithdrawalMod
           label="Cantidad"
           type="number"
           min={1}
+          max={product?.stock || 1}
           value={form.quantity}
           onChange={(e) => setForm({ ...form, quantity: Number(e.target.value) })}
           required
         />
+
+        {product && form.quantity > product.stock && (
+          <p className="text-xs text-[var(--danger)]">La cantidad supera el stock disponible ({product.stock} uds)</p>
+        )}
 
         {sellers.length > 0 && (
           <Select
