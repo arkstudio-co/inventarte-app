@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Modal } from '@/components/ui/Modal'
+import { DateFilter, computeDateRange } from '@/components/ui/DateFilter'
+import type { DateFilterState } from '@/components/ui/DateFilter'
 import { CreateProductModal } from '@/components/inventory/CreateProductModal'
 import { WithdrawalModal } from '@/components/inventory/WithdrawalModal'
 import {
@@ -57,6 +59,13 @@ export default function InventoryMovementsPage() {
   const [error, setError] = useState('')
 
   const [searchTerm, setSearchTerm] = useState('')
+  const [filter, setFilter] = useState<DateFilterState>({
+    mode: 'all',
+    month: new Date().getMonth() + 1,
+    year: new Date().getFullYear(),
+    customStart: '',
+    customEnd: '',
+  })
   const [typeFilter, setTypeFilter] = useState<'all' | 'entry' | 'withdrawal'>('all')
 
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -204,6 +213,8 @@ export default function InventoryMovementsPage() {
   }, [])
 
   const filteredMovements = useMemo(() => {
+    const { startDate, endDate } = computeDateRange(filter)
+
     return movements.filter((m) => {
       if (typeFilter === 'entry' && m.type !== 'entry') return false
       if (typeFilter === 'withdrawal' && m.type !== 'withdrawal') return false
@@ -216,9 +227,12 @@ export default function InventoryMovementsPage() {
         if (!matchName && !matchSku && !matchRef) return false
       }
 
+      if (startDate && new Date(m.dateStr) < startDate) return false
+      if (endDate && new Date(m.dateStr) >= endDate) return false
+
       return true
     })
-  }, [movements, searchTerm, typeFilter])
+  }, [movements, searchTerm, filter, typeFilter])
 
   const stats = useMemo(() => {
     const today = new Date()
@@ -285,10 +299,17 @@ export default function InventoryMovementsPage() {
 
   const clearFilters = () => {
     setSearchTerm('')
+    setFilter({
+      mode: 'all',
+      month: new Date().getMonth() + 1,
+      year: new Date().getFullYear(),
+      customStart: '',
+      customEnd: '',
+    })
     setTypeFilter('all')
   }
 
-  const hasActiveFilters = searchTerm || typeFilter !== 'all'
+  const hasActiveFilters = searchTerm || filter.mode !== 'all' || typeFilter !== 'all'
 
   if (isLoading) {
     return (
@@ -392,7 +413,7 @@ export default function InventoryMovementsPage() {
 
       {/* Filters */}
       <div className="rounded-[var(--radius-md)] bg-[var(--surface-1)] border border-[var(--border-default)] p-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           <div className="relative lg:col-span-2">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ink-tertiary)]" />
             <input
@@ -401,6 +422,9 @@ export default function InventoryMovementsPage() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
+          </div>
+          <div className="lg:col-span-2 flex items-center">
+            <DateFilter value={filter} onChange={setFilter} />
           </div>
           <Select
             value={typeFilter}
