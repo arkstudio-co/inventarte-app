@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
-import { Select } from '@/components/ui/Select'
 import { Modal } from '@/components/ui/Modal'
 import { DateFilter, computeDateRange } from '@/components/ui/DateFilter'
 import type { DateFilterState } from '@/components/ui/DateFilter'
@@ -66,7 +65,6 @@ export default function InventoryMovementsPage() {
     customStart: '',
     customEnd: '',
   })
-  const [typeFilter, setTypeFilter] = useState<'all' | 'entry' | 'withdrawal'>('all')
 
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showEntryModal, setShowEntryModal] = useState(false)
@@ -216,9 +214,6 @@ export default function InventoryMovementsPage() {
     const { startDate, endDate } = computeDateRange(filter)
 
     return movements.filter((m) => {
-      if (typeFilter === 'entry' && m.type !== 'entry') return false
-      if (typeFilter === 'withdrawal' && m.type !== 'withdrawal') return false
-
       if (searchTerm) {
         const term = searchTerm.toLowerCase()
         const matchName = m.productName.toLowerCase().includes(term)
@@ -232,7 +227,7 @@ export default function InventoryMovementsPage() {
 
       return true
     })
-  }, [movements, searchTerm, filter, typeFilter])
+  }, [movements, searchTerm, filter])
 
   const stats = useMemo(() => {
     const today = new Date()
@@ -306,10 +301,9 @@ export default function InventoryMovementsPage() {
       customStart: '',
       customEnd: '',
     })
-    setTypeFilter('all')
   }
 
-  const hasActiveFilters = searchTerm || filter.mode !== 'all' || typeFilter !== 'all'
+  const hasActiveFilters = searchTerm || filter.mode !== 'all'
 
   if (isLoading) {
     return (
@@ -413,8 +407,8 @@ export default function InventoryMovementsPage() {
 
       {/* Filters */}
       <div className="rounded-[var(--radius-md)] bg-[var(--surface-1)] border border-[var(--border-default)] p-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-          <div className="relative lg:col-span-2">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative flex-1 min-w-[200px] max-w-md">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ink-tertiary)]" />
             <input
               className="w-full pl-9 pr-3 py-2 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] placeholder:text-[var(--ink-muted)] focus:outline-none focus:border-[var(--accent)] transition-colors"
@@ -423,18 +417,7 @@ export default function InventoryMovementsPage() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <div className="lg:col-span-2 flex items-center">
-            <DateFilter value={filter} onChange={setFilter} />
-          </div>
-          <Select
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value as 'all' | 'entry' | 'withdrawal')}
-            options={[
-              { value: 'all', label: 'Todos' },
-              { value: 'entry', label: 'Solo entradas' },
-              { value: 'withdrawal', label: 'Solo salidas' },
-            ]}
-          />
+          <DateFilter value={filter} onChange={setFilter} />
         </div>
         {hasActiveFilters && (
           <button
