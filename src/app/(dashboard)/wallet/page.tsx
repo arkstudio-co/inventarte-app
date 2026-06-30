@@ -45,7 +45,7 @@ export default function WalletPage() {
   const [balanceAdminExpenses, setBalanceAdminExpenses] = useState(0)
 
   const [adminModalOpen, setAdminModalOpen] = useState(false)
-  const [adminForm, setAdminForm] = useState({ description: '', amount: 0, category: '', expense_date: '', notes: '' })
+  const [adminForm, setAdminForm] = useState({ description: '', amount: 0, category: '', type: 'variable' as 'fixed' | 'variable', expense_date: '', notes: '' })
 
   const [apModalOpen, setApModalOpen] = useState(false)
   const [apForm, setApForm] = useState({ supplier_id: '', amount: 0, description: '', due_date: '' })
@@ -143,12 +143,13 @@ export default function WalletPage() {
       description: adminForm.description,
       amount: adminForm.amount,
       category: adminForm.category || null,
+      type: adminForm.type,
       expense_date: adminForm.expense_date || null,
       notes: adminForm.notes || null,
     }
     await supabase.from('administrative_expenses').insert(payload)
     setAdminModalOpen(false)
-    setAdminForm({ description: '', amount: 0, category: '', expense_date: '', notes: '' })
+    setAdminForm({ description: '', amount: 0, category: '', type: 'variable', expense_date: '', notes: '' })
     fetchAll()
   }
 
@@ -349,7 +350,16 @@ export default function WalletPage() {
               {(adminShowAll ? adminExpenses : adminExpenses.slice(0, 2)).map((o) => (
                 <div key={o.id} className="py-2 flex items-center justify-between gap-2">
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-[var(--ink)] truncate">{o.description}</p>
+                    <p className="text-sm font-medium text-[var(--ink)] truncate">
+                      {o.description}
+                      <span className={`ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                        o.type === 'fixed'
+                          ? 'bg-[var(--accent)]/10 text-[var(--accent)]'
+                          : 'bg-[var(--accent)]/10 text-[var(--accent)]'
+                      }`}>
+                        {o.type === 'fixed' ? 'Fijo' : 'Variable'}
+                      </span>
+                    </p>
                     <p className="text-xs text-[var(--ink-tertiary)]">
                       {o.category || '—'} • {o.expense_date ? new Date(o.expense_date).toLocaleDateString('es-CO') : '—'}
                     </p>
@@ -464,6 +474,17 @@ export default function WalletPage() {
           <Input label="Descripción" value={adminForm.description} onChange={(e) => setAdminForm({ ...adminForm, description: e.target.value })} required />
           <Input label="Monto" type="number" value={adminForm.amount} onChange={(e) => setAdminForm({ ...adminForm, amount: Number(e.target.value) })} required min={1} />
           <Input label="Categoría" value={adminForm.category} onChange={(e) => setAdminForm({ ...adminForm, category: e.target.value })} placeholder="ej. Arriendo, Servicios, Papelería" />
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-[var(--ink-secondary)]">Tipo</label>
+            <select
+              value={adminForm.type}
+              onChange={(e) => setAdminForm({ ...adminForm, type: e.target.value as 'fixed' | 'variable' })}
+              className="w-full px-3 py-2 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+            >
+              <option value="variable">Gasto Variable</option>
+              <option value="fixed">Gasto Fijo</option>
+            </select>
+          </div>
           <Input label="Fecha del gasto" type="date" value={adminForm.expense_date} onChange={(e) => setAdminForm({ ...adminForm, expense_date: e.target.value })} />
           <Input label="Notas" value={adminForm.notes} onChange={(e) => setAdminForm({ ...adminForm, notes: e.target.value })} />
           <div className="flex justify-end gap-2 pt-2">

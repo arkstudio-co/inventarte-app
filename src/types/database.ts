@@ -189,6 +189,7 @@ export interface AdministrativeExpense {
   description: string
   amount: number
   category: string
+  type: 'fixed' | 'variable'
   expense_date: string
   notes: string | null
   created_at: string

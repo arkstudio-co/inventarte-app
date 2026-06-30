@@ -6,21 +6,20 @@ import { cn } from '@/lib/utils/cn'
 import { useAuth } from '@/providers/AuthProvider'
 import {
   Wallet,
-  Tags,
-  Settings,
   UserCheck,
   Palette,
   LogOut,
   X,
   Box,
   ArrowUpDown,
+  Receipt,
 } from 'lucide-react'
 
 const navItems = [
   { href: '/wallet', label: 'Wallet', icon: Wallet },
   { href: '/inventory/stock', label: 'Inventario', icon: Box },
   { href: '/inventory', label: 'Movimientos', icon: ArrowUpDown },
-  { href: '/settings', label: 'Proveedores', icon: Settings },
+  { href: '/settings', label: 'Concepto de Gastos', icon: Receipt },
   { href: '/colaboradores', label: 'Colaboradores', icon: UserCheck },
   { href: '/landing-admin', label: 'Landing Admin', icon: Palette },
 ]
