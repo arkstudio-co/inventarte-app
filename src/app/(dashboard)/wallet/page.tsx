@@ -5,6 +5,8 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
+import { DateFilter, computeDateRange } from '@/components/ui/DateFilter'
+import type { DateFilterState } from '@/components/ui/DateFilter'
 import {
   TrendingUp,
   Plus,
@@ -17,31 +19,8 @@ import {
   Mail,
   Phone,
   Package,
-  CalendarDays,
-  X,
 } from 'lucide-react'
 import type { Supplier, AccountPayable, AdministrativeExpense } from '@/types/database'
-
-const MONTHS = [
-  { value: '1', label: 'Enero' },
-  { value: '2', label: 'Febrero' },
-  { value: '3', label: 'Marzo' },
-  { value: '4', label: 'Abril' },
-  { value: '5', label: 'Mayo' },
-  { value: '6', label: 'Junio' },
-  { value: '7', label: 'Julio' },
-  { value: '8', label: 'Agosto' },
-  { value: '9', label: 'Septiembre' },
-  { value: '10', label: 'Octubre' },
-  { value: '11', label: 'Noviembre' },
-  { value: '12', label: 'Diciembre' },
-]
-
-const currentYear = new Date().getFullYear()
-const YEARS = Array.from({ length: currentYear - 2020 + 2 }, (_, i) => ({
-  value: String(2020 + i),
-  label: String(2020 + i),
-}))
 
 export default function WalletPage() {
   const supabase = createClient()
@@ -52,15 +31,13 @@ export default function WalletPage() {
   const [ap, setAp] = useState<AccountPayable[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
 
-  type FilterMode = 'month' | 'today' | 'yesterday' | 'last30' | 'last15' | 'last7' | 'custom' | 'all'
-
-  const now = new Date()
-  const [filterMode, setFilterMode] = useState<FilterMode>('month')
-  const [filterMonth, setFilterMonth] = useState(now.getMonth() + 1)
-  const [filterYear, setFilterYear] = useState(now.getFullYear())
-  const [customStart, setCustomStart] = useState('')
-  const [customEnd, setCustomEnd] = useState('')
-  const [hasCustomized, setHasCustomized] = useState(false)
+  const [filter, setFilter] = useState<DateFilterState>({
+    mode: 'month',
+    month: new Date().getMonth() + 1,
+    year: new Date().getFullYear(),
+    customStart: '',
+    customEnd: '',
+  })
   const [inventoryValue, setInventoryValue] = useState(0)
 
   const [adminExpenses, setAdminExpenses] = useState<AdministrativeExpense[]>([])
@@ -85,60 +62,9 @@ export default function WalletPage() {
   const [balanceApTotal, setBalanceApTotal] = useState(0)
 
   const fetchAll = async () => {
-    const now = new Date()
-    let startDate: string | null = null
-    let endDate: string | null = null
-
-    switch (filterMode) {
-      case 'month':
-        if (filterMonth === 0) {
-          startDate = new Date(filterYear, 0, 1).toISOString()
-          endDate = new Date(filterYear + 1, 0, 1).toISOString()
-        } else {
-          startDate = new Date(filterYear, filterMonth - 1, 1).toISOString()
-          endDate = new Date(filterYear, filterMonth, 1).toISOString()
-        }
-        break
-      case 'today': {
-        const todayStart = new Date()
-        todayStart.setHours(0, 0, 0, 0)
-        startDate = todayStart.toISOString()
-        const tomorrow = new Date(todayStart)
-        tomorrow.setDate(tomorrow.getDate() + 1)
-        endDate = tomorrow.toISOString()
-        break
-      }
-      case 'yesterday': {
-        const yesterdayStart = new Date()
-        yesterdayStart.setDate(yesterdayStart.getDate() - 1)
-        yesterdayStart.setHours(0, 0, 0, 0)
-        startDate = yesterdayStart.toISOString()
-        const todayMidnight = new Date()
-        todayMidnight.setHours(0, 0, 0, 0)
-        endDate = todayMidnight.toISOString()
-        break
-      }
-      case 'last30':
-        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()
-        endDate = now.toISOString()
-        break
-      case 'last15':
-        startDate = new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000).toISOString()
-        endDate = now.toISOString()
-        break
-      case 'last7':
-        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
-        endDate = now.toISOString()
-        break
-      case 'custom':
-        if (customStart && customEnd) {
-          startDate = new Date(customStart + 'T00:00:00').toISOString()
-          const end = new Date(customEnd)
-          end.setDate(end.getDate() + 1)
-          endDate = end.toISOString()
-        }
-        break
-    }
+    const { startDate: sd, endDate: ed } = computeDateRange(filter)
+    const startDate: string | null = sd ? sd.toISOString() : null
+    const endDate: string | null = ed ? ed.toISOString() : null
 
     const wf = (q: any, col: string) => startDate ? q.gte(col, startDate).lt(col, endDate) : q
     const [incomeRes, expensesRes, arRes, apRes, suppliersRes, incomeTotalRes, expenseTotalRes, arTotalRes, paymentsRes, productsRes, balanceIncomeRes, balancePaymentsRes, balanceExpensesRes, adminExpensesRes, balanceAdminExpensesRes, balanceApTotalRes] = await Promise.all([
@@ -178,17 +104,13 @@ export default function WalletPage() {
     if (balanceApTotalRes.data) setBalanceApTotal(balanceApTotalRes.data.reduce((s: number, a: any) => s + a.amount, 0))
   }
 
-  useEffect(() => { fetchAll() }, [filterMode, filterMonth, filterYear, customStart, customEnd])
+  useEffect(() => { fetchAll() }, [filter])
 
   const apTotal = ap.reduce((sum, a) => sum + a.amount, 0)
   const [apShowAll, setApShowAll] = useState(false)
   const netArTotals = Math.max(0, arTotals - balancePayments)
   const gastosTotal = expenseTotals + adminExpenseTotals + apTotal
   const balance = balanceIncome + balancePayments - balanceExpenses - balanceAdminExpenses - balanceApTotal
-  const isDefault = filterMode === 'month' && filterMonth === now.getMonth() + 1 && filterYear === now.getFullYear()
-  const showDateInputs = filterMode === 'custom' || filterMode === 'last30' || filterMode === 'last15' || filterMode === 'last7' || filterMode === 'today' || filterMode === 'yesterday'
-  const showPersonalized = hasCustomized || (filterMode === 'month' && !isDefault)
-
   const handleCreateAp = async (e: React.FormEvent) => {
     e.preventDefault()
     const payload: any = {
@@ -243,130 +165,7 @@ export default function WalletPage() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-xl font-semibold text-[var(--ink)]">Wallet</h1>
 
-        {/* Date filter */}
-        <div className="flex items-center gap-2">
-          <CalendarDays size={16} className="text-[var(--ink-tertiary)]" />
-          <select
-            value={showPersonalized ? 'personalized' : filterMode}
-            onChange={(e) => {
-              const mode = e.target.value
-              if (mode === 'personalized') return
-              setHasCustomized(false)
-              setFilterMode(mode as FilterMode)
-              if (mode === 'custom') {
-                const d = new Date()
-                setCustomEnd(d.toISOString().split('T')[0])
-                setCustomStart(new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0])
-              }
-              if (mode === 'last30' || mode === 'last15' || mode === 'last7') {
-                const d = new Date()
-                const days = mode === 'last30' ? 30 : mode === 'last15' ? 15 : 7
-                const start = new Date(d.getTime() - days * 24 * 60 * 60 * 1000)
-                setCustomEnd(d.toISOString().split('T')[0])
-                setCustomStart(start.toISOString().split('T')[0])
-              }
-              if (mode === 'today') {
-                const d = new Date()
-                const today = d.toISOString().split('T')[0]
-                setCustomStart(today)
-                setCustomEnd(today)
-              }
-              if (mode === 'yesterday') {
-                const d = new Date()
-                const today = d.toISOString().split('T')[0]
-                const yesterday = new Date(d)
-                yesterday.setDate(yesterday.getDate() - 1)
-                setCustomStart(yesterday.toISOString().split('T')[0])
-                setCustomEnd(today)
-              }
-              if (mode === 'month') {
-                const d = new Date()
-                setFilterMonth(d.getMonth() + 1)
-                setFilterYear(d.getFullYear())
-              }
-            }}
-            className="px-2.5 py-1.5 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-1)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors appearance-none cursor-pointer"
-          >
-            <option value="month">Este mes</option>
-            {showPersonalized && (
-              <option value="personalized" disabled>Personalizado</option>
-            )}
-            <option value="today">Hoy</option>
-            <option value="yesterday">Ayer</option>
-            <option value="last7">Últimos 7 días</option>
-            <option value="last15">Últimos 15 días</option>
-            <option value="last30">Últimos 30 días</option>
-            <option value="custom">Personalizar</option>
-            <option value="all">Todo el período</option>
-          </select>
-
-
-          {filterMode === 'month' && (
-            <>
-              <select
-                value={filterMonth}
-                onChange={(e) => setFilterMonth(Number(e.target.value))}
-                className="px-2.5 py-1.5 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-1)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors appearance-none cursor-pointer"
-              >
-                <option value="0">Todos los meses</option>
-                {MONTHS.map((m) => (
-                  <option key={m.value} value={m.value}>{m.label}</option>
-                ))}
-              </select>
-              <select
-                value={filterYear}
-                onChange={(e) => setFilterYear(Number(e.target.value))}
-                className="px-2.5 py-1.5 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-1)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors appearance-none cursor-pointer"
-              >
-                {YEARS.map((y) => (
-                  <option key={y.value} value={y.value}>{y.label}</option>
-                ))}
-              </select>
-            </>
-          )}
-
-          {showDateInputs && (
-            <>
-              <input
-                type="date"
-                value={customStart}
-                onChange={(e) => {
-                  setCustomStart(e.target.value)
-                  if (filterMode !== 'custom') setFilterMode('custom')
-                  setHasCustomized(true)
-                }}
-                className="px-2.5 py-1.5 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-1)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors"
-              />
-              <span className="text-[var(--ink-tertiary)] text-sm">—</span>
-              <input
-                type="date"
-                value={customEnd}
-                onChange={(e) => {
-                  setCustomEnd(e.target.value)
-                  if (filterMode !== 'custom') setFilterMode('custom')
-                  setHasCustomized(true)
-                }}
-                className="px-2.5 py-1.5 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-1)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors"
-              />
-            </>
-          )}
-
-          {!isDefault && (
-            <button
-              onClick={() => {
-                const d = new Date()
-                setHasCustomized(false)
-                setFilterMode('month')
-                setFilterMonth(d.getMonth() + 1)
-                setFilterYear(d.getFullYear())
-              }}
-              className="p-1.5 text-[var(--ink-tertiary)] hover:text-[var(--danger)] hover:bg-[var(--danger-light)] rounded-[var(--radius-sm)] transition-colors cursor-pointer"
-              title="Restablecer filtro predeterminado"
-            >
-              <X size={16} />
-            </button>
-          )}
-        </div>
+        <DateFilter value={filter} onChange={setFilter} />
       </div>
 
       {/* Balance hero + summary */}

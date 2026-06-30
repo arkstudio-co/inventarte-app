@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Modal } from '@/components/ui/Modal'
+import { DateFilter, computeDateRange } from '@/components/ui/DateFilter'
+import type { DateFilterState } from '@/components/ui/DateFilter'
 import { CreateProductModal } from '@/components/inventory/CreateProductModal'
 import { WithdrawalModal } from '@/components/inventory/WithdrawalModal'
 import {
@@ -57,8 +59,13 @@ export default function InventoryMovementsPage() {
   const [error, setError] = useState('')
 
   const [searchTerm, setSearchTerm] = useState('')
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
+  const [filter, setFilter] = useState<DateFilterState>({
+    mode: 'all',
+    month: new Date().getMonth() + 1,
+    year: new Date().getFullYear(),
+    customStart: '',
+    customEnd: '',
+  })
   const [typeFilter, setTypeFilter] = useState<'all' | 'entry' | 'withdrawal'>('all')
 
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -206,6 +213,8 @@ export default function InventoryMovementsPage() {
   }, [])
 
   const filteredMovements = useMemo(() => {
+    const { startDate, endDate } = computeDateRange(filter)
+
     return movements.filter((m) => {
       if (typeFilter === 'entry' && m.type !== 'entry') return false
       if (typeFilter === 'withdrawal' && m.type !== 'withdrawal') return false
@@ -218,16 +227,12 @@ export default function InventoryMovementsPage() {
         if (!matchName && !matchSku && !matchRef) return false
       }
 
-      if (dateFrom && new Date(m.dateStr) < new Date(dateFrom)) return false
-      if (dateTo) {
-        const endDate = new Date(dateTo)
-        endDate.setHours(23, 59, 59, 999)
-        if (new Date(m.dateStr) > endDate) return false
-      }
+      if (startDate && new Date(m.dateStr) < startDate) return false
+      if (endDate && new Date(m.dateStr) >= endDate) return false
 
       return true
     })
-  }, [movements, searchTerm, dateFrom, dateTo, typeFilter])
+  }, [movements, searchTerm, filter, typeFilter])
 
   const stats = useMemo(() => {
     const today = new Date()
@@ -294,12 +299,17 @@ export default function InventoryMovementsPage() {
 
   const clearFilters = () => {
     setSearchTerm('')
-    setDateFrom('')
-    setDateTo('')
+    setFilter({
+      mode: 'all',
+      month: new Date().getMonth() + 1,
+      year: new Date().getFullYear(),
+      customStart: '',
+      customEnd: '',
+    })
     setTypeFilter('all')
   }
 
-  const hasActiveFilters = searchTerm || dateFrom || dateTo || typeFilter !== 'all'
+  const hasActiveFilters = searchTerm || filter.mode !== 'all' || typeFilter !== 'all'
 
   if (isLoading) {
     return (
@@ -413,25 +423,8 @@ export default function InventoryMovementsPage() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <div className="relative">
-            <CalendarDays size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ink-tertiary)]" />
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors"
-              title="Desde"
-            />
-          </div>
-          <div className="relative">
-            <CalendarDays size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ink-tertiary)]" />
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors"
-              title="Hasta"
-            />
+          <div className="lg:col-span-2 flex items-center">
+            <DateFilter value={filter} onChange={setFilter} />
           </div>
           <Select
             value={typeFilter}

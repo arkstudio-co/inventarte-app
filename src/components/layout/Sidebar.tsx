@@ -12,11 +12,14 @@ import {
   Palette,
   LogOut,
   X,
+  Box,
+  ArrowUpDown,
 } from 'lucide-react'
 
 const navItems = [
   { href: '/wallet', label: 'Wallet', icon: Wallet },
-  { href: '/inventory', label: 'Movimientos', icon: Tags },
+  { href: '/inventory/stock', label: 'Inventario', icon: Box },
+  { href: '/inventory', label: 'Movimientos', icon: ArrowUpDown },
   { href: '/settings', label: 'Proveedores', icon: Settings },
   { href: '/colaboradores', label: 'Colaboradores', icon: UserCheck },
   { href: '/landing-admin', label: 'Landing Admin', icon: Palette },
