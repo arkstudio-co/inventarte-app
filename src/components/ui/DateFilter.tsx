@@ -1,6 +1,6 @@
 'use client'
 
-import { CalendarDays, X } from 'lucide-react'
+import { CalendarDays } from 'lucide-react'
 
 export type FilterMode = 'month' | 'today' | 'yesterday' | 'last30' | 'last15' | 'last7' | 'custom' | 'all'
 
@@ -112,8 +112,7 @@ export function DateFilter({ value, onChange }: DateFilterProps) {
     value.mode === 'today' ||
     value.mode === 'yesterday'
 
-  const isMonthCustomized = value.mode === 'month' && !isDefault
-  const showPersonalized = isMonthCustomized
+  const showPersonalized = value.mode === 'month' && !isDefault
 
   const handleModeChange = (next: string) => {
     if (next === 'personalized') return
@@ -174,17 +173,6 @@ export function DateFilter({ value, onChange }: DateFilterProps) {
       ...value,
       customEnd: val,
       mode: value.mode !== 'custom' ? 'custom' : value.mode,
-    })
-  }
-
-  const resetToDefault = () => {
-    const d = new Date()
-    onChange({
-      mode: 'month',
-      month: d.getMonth() + 1,
-      year: d.getFullYear(),
-      customStart: '',
-      customEnd: '',
     })
   }
 
@@ -257,15 +245,7 @@ export function DateFilter({ value, onChange }: DateFilterProps) {
         </>
       )}
 
-      {!isDefault && (
-        <button
-          onClick={resetToDefault}
-          className="p-1.5 text-[var(--ink-tertiary)] hover:text-[var(--danger)] hover:bg-[var(--danger-light)] rounded-[var(--radius-sm)] transition-colors cursor-pointer"
-          title="Restablecer filtro predeterminado"
-        >
-          <X size={16} />
-        </button>
-      )}
+
     </div>
   )
 }
