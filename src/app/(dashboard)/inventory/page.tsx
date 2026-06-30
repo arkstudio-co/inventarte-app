@@ -59,7 +59,7 @@ export default function InventoryMovementsPage() {
 
   const [searchTerm, setSearchTerm] = useState('')
   const [filter, setFilter] = useState<DateFilterState>({
-    mode: 'all',
+    mode: 'month',
     month: new Date().getMonth() + 1,
     year: new Date().getFullYear(),
     customStart: '',
@@ -295,7 +295,7 @@ export default function InventoryMovementsPage() {
   const clearFilters = () => {
     setSearchTerm('')
     setFilter({
-      mode: 'all',
+      mode: 'month',
       month: new Date().getMonth() + 1,
       year: new Date().getFullYear(),
       customStart: '',
@@ -303,7 +303,9 @@ export default function InventoryMovementsPage() {
     })
   }
 
-  const hasActiveFilters = searchTerm || filter.mode !== 'all'
+  const now = new Date()
+  const isDefaultDate = filter.mode === 'month' && filter.month === now.getMonth() + 1 && filter.year === now.getFullYear()
+  const hasActiveFilters = searchTerm || !isDefaultDate
 
   if (isLoading) {
     return (
