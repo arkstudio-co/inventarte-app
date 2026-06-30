@@ -192,7 +192,7 @@ export default function WalletPage() {
           </div>
         </div>
 
-        <div className="rounded-[var(--radius-md)] bg-[var(--tint)] border border-[var(--tint)] p-5 flex flex-col justify-center items-center text-center">
+        <div className="rounded-[var(--radius-md)] bg-[var(--primary-light)] border border-[var(--primary-light)] p-5 flex flex-col justify-center items-center text-center">
           <p className="text-xs font-medium text-[var(--ink)]/70 uppercase tracking-wide mb-1">Saldo Disponible</p>
           <p className="text-3xl font-bold text-[var(--ink)]">{formatCurrency(balance)}</p>
         </div>
