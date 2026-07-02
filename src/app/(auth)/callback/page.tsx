@@ -12,7 +12,8 @@ function CallbackHandler() {
 
   useEffect(() => {
     const code = searchParams.get('code')
-    const next = searchParams.get('next') ?? '/dashboard'
+    const next = searchParams.get('next') ?? sessionStorage.getItem('auth_next') ?? '/dashboard'
+    sessionStorage.removeItem('auth_next')
 
     if (code) {
       ;(async () => {
