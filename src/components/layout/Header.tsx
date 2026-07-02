@@ -39,8 +39,8 @@ export function Header({ onMenuClick }: HeaderProps) {
 
         {showNotifications && (
           <>
-            <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)} />
-            <div className="absolute right-0 top-full mt-2 z-50 w-80 rounded-[var(--radius-md)] bg-[var(--surface-overlay)] border border-[var(--border-default)] shadow-lg">
+            <div className="fixed inset-0 z-40 bg-black/10" onClick={() => setShowNotifications(false)} />
+            <div className="absolute right-0 top-full mt-2 z-50 w-80 rounded-[var(--radius-md)] bg-[var(--surface)] border border-[var(--border-default)] shadow-lg">
               <div className="p-3 border-b border-[var(--border-subtle)]">
                 <h3 className="text-sm font-semibold text-[var(--ink)]">Notificaciones</h3>
               </div>

@@ -18,11 +18,11 @@ import {
 
 const navItems = [
   { href: '/wallet', label: 'Wallet', icon: Wallet },
-  { href: '/inventory/stock', label: 'Inventario', icon: Box },
-  { href: '/inventory', label: 'Movimientos', icon: ArrowUpDown },
+  { href: '/inventory/stock', label: 'Productos', icon: Box },
+  { href: '/inventory', label: 'Inventario', icon: ArrowUpDown },
   { href: '/settings', label: 'Concepto de Gastos', icon: Receipt },
   { href: '/users', label: 'Usuarios', icon: Users },
-  { href: '/colaboradores', label: 'Colaboradores', icon: UserCheck },
+  { href: '/colaboradores', label: 'Vendedores', icon: UserCheck },
   { href: '/landing-admin', label: 'Landing Admin', icon: Palette },
 ]
 
