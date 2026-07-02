@@ -134,15 +134,6 @@ export function CreateProductModal({ isOpen, onClose, onSuccess }: CreateProduct
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <Input
-            id="stock"
-            label="Stock"
-            type="number"
-            value={form.stock}
-            onChange={(e) => updateField('stock', e.target.value === '' ? '' : Number(e.target.value))}
-            required
-          />
           <Input
             id="min_stock"
             label="Stock mínimo"
@@ -151,7 +142,6 @@ export function CreateProductModal({ isOpen, onClose, onSuccess }: CreateProduct
             onChange={(e) => updateField('min_stock', e.target.value === '' ? '' : Number(e.target.value))}
             required
           />
-        </div>
 
         <div className="grid grid-cols-2 gap-3">
           <Input

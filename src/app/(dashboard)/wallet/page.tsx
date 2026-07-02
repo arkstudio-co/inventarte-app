@@ -20,7 +20,7 @@ import {
   Phone,
   Package,
 } from 'lucide-react'
-import type { Supplier, AccountPayable, AdministrativeExpense } from '@/types/database'
+import type { Supplier, AccountPayable, AdministrativeExpense, OtherIncome } from '@/types/database'
 
 export default function WalletPage() {
   const supabase = createClient()
@@ -50,6 +50,12 @@ export default function WalletPage() {
   const [apModalOpen, setApModalOpen] = useState(false)
   const [apForm, setApForm] = useState<{ supplier_id: string; amount: number | ''; description: string; due_date: string }>({ supplier_id: '', amount: '', description: '', due_date: '' })
 
+  const [otherIncome, setOtherIncome] = useState<OtherIncome[]>([])
+  const [otherIncomeTotals, setOtherIncomeTotals] = useState(0)
+  const [balanceOtherIncome, setBalanceOtherIncome] = useState(0)
+  const [otherIncomeModalOpen, setOtherIncomeModalOpen] = useState(false)
+  const [otherIncomeForm, setOtherIncomeForm] = useState({ description: '', amount: '' as number | '', category: '', income_date: '', notes: '' })
+
   const [incomeTotals, setIncomeTotals] = useState(0)
   const [expenseTotals, setExpenseTotals] = useState(0)
   const [arTotals, setArTotals] = useState(0)
@@ -67,7 +73,7 @@ export default function WalletPage() {
     const endDate: string | null = ed ? ed.toISOString() : null
 
     const wf = (q: any, col: string) => startDate ? q.gte(col, startDate).lt(col, endDate) : q
-    const [incomeRes, expensesRes, arRes, apRes, suppliersRes, incomeTotalRes, expenseTotalRes, arTotalRes, paymentsRes, productsRes, balanceIncomeRes, balancePaymentsRes, balanceExpensesRes, adminExpensesRes, balanceAdminExpensesRes, balanceApTotalRes] = await Promise.all([
+    const [incomeRes, expensesRes, arRes, apRes, suppliersRes, incomeTotalRes, expenseTotalRes, arTotalRes, paymentsRes, productsRes, balanceIncomeRes, balancePaymentsRes, balanceExpensesRes, adminExpensesRes, balanceAdminExpensesRes, balanceApTotalRes, otherIncomeRes, balanceOtherIncomeRes] = await Promise.all([
       wf(supabase.from('stock_withdrawals').select('*, products(*)').eq('delivery_type', 'paid'), 'withdrawal_date').order('withdrawal_date', { ascending: false }).limit(10),
       wf(supabase.from('stock_entries').select('*, products(*)'), 'created_at').order('created_at', { ascending: false }).limit(10),
       supabase.from('stock_withdrawals').select('*, products(*), sellers(*)').eq('delivery_type', 'pending').gt('pending_amount', 0).order('withdrawal_date', { ascending: false }).limit(10),
@@ -84,6 +90,8 @@ export default function WalletPage() {
       wf(supabase.from('administrative_expenses').select('*'), 'expense_date').order('expense_date', { ascending: false }),
       supabase.from('administrative_expenses').select('amount'),
       supabase.from('accounts_payable').select('amount').eq('is_paid', false),
+      wf(supabase.from('other_income').select('*'), 'income_date').order('income_date', { ascending: false }),
+      supabase.from('other_income').select('amount'),
     ])
     if (incomeRes.data) setIncome(incomeRes.data)
     if (expensesRes.data) setExpenses(expensesRes.data)
@@ -102,6 +110,9 @@ export default function WalletPage() {
     if (adminExpensesRes.data) setAdminExpenseTotals(adminExpensesRes.data.reduce((s: number, o: any) => s + o.amount, 0))
     if (balanceAdminExpensesRes.data) setBalanceAdminExpenses(balanceAdminExpensesRes.data.reduce((s: number, o: any) => s + o.amount, 0))
     if (balanceApTotalRes.data) setBalanceApTotal(balanceApTotalRes.data.reduce((s: number, a: any) => s + a.amount, 0))
+    if (otherIncomeRes.data) setOtherIncome(otherIncomeRes.data as OtherIncome[])
+    if (otherIncomeRes.data) setOtherIncomeTotals(otherIncomeRes.data.reduce((s: number, o: any) => s + o.amount, 0))
+    if (balanceOtherIncomeRes.data) setBalanceOtherIncome(balanceOtherIncomeRes.data.reduce((s: number, o: any) => s + o.amount, 0))
   }
 
   useEffect(() => { fetchAll() }, [filter])
@@ -110,7 +121,7 @@ export default function WalletPage() {
   const [apShowAll, setApShowAll] = useState(false)
   const netArTotals = Math.max(0, arTotals - balancePayments)
   const gastosTotal = expenseTotals + adminExpenseTotals + apTotal
-  const balance = balanceIncome + balancePayments - balanceExpenses - balanceAdminExpenses - balanceApTotal
+  const balance = balanceIncome + balancePayments + balanceOtherIncome - balanceExpenses - balanceAdminExpenses - balanceApTotal
   const handleCreateAp = async (e: React.FormEvent) => {
     e.preventDefault()
     const payload: any = {
@@ -153,6 +164,29 @@ export default function WalletPage() {
     fetchAll()
   }
 
+  const handleCreateOtherIncome = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    await supabase.from('other_income').insert({
+      description: otherIncomeForm.description,
+      amount: otherIncomeForm.amount === '' ? 0 : otherIncomeForm.amount,
+      category: otherIncomeForm.category || 'other',
+      income_date: otherIncomeForm.income_date || new Date().toISOString().split('T')[0],
+      notes: otherIncomeForm.notes || null,
+      created_by: user.id,
+    })
+    setOtherIncomeModalOpen(false)
+    setOtherIncomeForm({ description: '', amount: '', category: '', income_date: '', notes: '' })
+    fetchAll()
+  }
+
+  const deleteOtherIncome = async (id: string) => {
+    if (!confirm('¿Eliminar este ingreso?')) return
+    await supabase.from('other_income').delete().eq('id', id)
+    fetchAll()
+  }
+
   const deleteAdmin = async (id: string) => {
     if (!confirm('¿Eliminar este gasto administrativo?')) return
     await supabase.from('administrative_expenses').delete().eq('id', id)
@@ -176,7 +210,7 @@ export default function WalletPage() {
             <p className="text-xs text-[var(--ink-tertiary)] uppercase tracking-wide flex items-center gap-1 mb-1">
               <TrendingUp size={14} className="text-[var(--success)]" /> Ingresos
             </p>
-            <p className="text-lg font-bold text-[var(--success)]">{formatCurrency(incomeTotals + paymentsTotal)}</p>
+            <p className="text-lg font-bold text-[var(--success)]">{formatCurrency(incomeTotals + paymentsTotal + otherIncomeTotals)}</p>
           </div>
           <div>
             <p className="text-xs text-[var(--ink-tertiary)] uppercase tracking-wide flex items-center gap-1 mb-1">
@@ -200,8 +234,17 @@ export default function WalletPage() {
 
       {/* Income + AR */}
       <div className="grid lg:grid-cols-2 gap-4">
-        <SectionCard title="Ingresos" icon={TrendingUp} iconColor="text-[var(--success)]">
-          {income.length === 0 && paymentsTotal === 0 ? (
+        <SectionCard
+          title="Ingresos"
+          icon={TrendingUp}
+          iconColor="text-[var(--success)]"
+          action={
+            <Button size="sm" onClick={() => setOtherIncomeModalOpen(true)}>
+              <Plus size={14} /> Otro Ingreso
+            </Button>
+          }
+        >
+          {income.length === 0 && paymentsTotal === 0 && otherIncome.length === 0 ? (
             <p className="text-sm text-[var(--ink-tertiary)] py-4 text-center">No hay ingresos registrados</p>
           ) : (
             <div className="space-y-3 text-sm">
@@ -213,9 +256,41 @@ export default function WalletPage() {
                 <span className="text-[var(--ink-secondary)]">Abonos de vendedores</span>
                 <span className="font-semibold text-[var(--success)]">{formatCurrency(paymentsTotal)}</span>
               </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[var(--ink-secondary)]">Otros Ingresos</span>
+                <span className="font-semibold text-[var(--success)]">{formatCurrency(otherIncomeTotals)}</span>
+              </div>
+              {otherIncome.length > 0 && (
+                <>
+                  <div className="border-t border-[var(--border-subtle)] pt-2">
+                    <div className="space-y-2">
+                      {otherIncome.map((o) => (
+                        <div key={o.id} className="flex items-center justify-between">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm text-[var(--ink)] truncate">{o.description}</p>
+                            <p className="text-xs text-[var(--ink-tertiary)]">
+                              {o.category} &middot; {new Date(o.income_date).toLocaleDateString('es-CO')}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0 ml-2">
+                            <span className="text-sm font-semibold text-[var(--success)]">{formatCurrency(o.amount)}</span>
+                            <button
+                              onClick={() => deleteOtherIncome(o.id)}
+                              className="p-1 text-[var(--ink-tertiary)] hover:text-[var(--danger)] rounded-[var(--radius-sm)] cursor-pointer"
+                              title="Eliminar"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
               <div className="flex items-center justify-between font-semibold pt-2 border-t border-[var(--border-subtle)]">
                 <span className="text-[var(--ink)]">Total Ingresos</span>
-                <span className="text-[var(--success)]">{formatCurrency(incomeTotals + paymentsTotal)}</span>
+                <span className="text-[var(--success)]">{formatCurrency(incomeTotals + paymentsTotal + otherIncomeTotals)}</span>
               </div>
               {incomeTotals > 0 && paymentsTotal > 0 && (
                 <div className="space-y-1.5 pt-1">
@@ -490,6 +565,35 @@ export default function WalletPage() {
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="ghost" onClick={() => setAdminModalOpen(false)}>Cancelar</Button>
             <Button type="submit">Crear Gasto</Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Modal: Add Other Income */}
+      <Modal isOpen={otherIncomeModalOpen} onClose={() => setOtherIncomeModalOpen(false)} title="Agregar Otro Ingreso">
+        <form onSubmit={handleCreateOtherIncome} className="space-y-4">
+          <Input label="Descripción" value={otherIncomeForm.description} onChange={(e) => setOtherIncomeForm({ ...otherIncomeForm, description: e.target.value })} required />
+          <Input label="Monto" type="number" value={otherIncomeForm.amount} onChange={(e) => setOtherIncomeForm({ ...otherIncomeForm, amount: e.target.value === '' ? '' : Number(e.target.value) })} required min={1} />
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-[var(--ink-secondary)]">Categoría</label>
+            <select
+              value={otherIncomeForm.category}
+              onChange={(e) => setOtherIncomeForm({ ...otherIncomeForm, category: e.target.value })}
+              className="w-full px-3 py-2 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+            >
+              <option value="">Seleccionar categoría</option>
+              <option value="donation">Donación</option>
+              <option value="sponsorship">Patrocinio</option>
+              <option value="service">Servicio</option>
+              <option value="interest">Interés</option>
+              <option value="other">Otro</option>
+            </select>
+          </div>
+          <Input label="Fecha del ingreso" type="date" value={otherIncomeForm.income_date} onChange={(e) => setOtherIncomeForm({ ...otherIncomeForm, income_date: e.target.value })} />
+          <Input label="Notas" value={otherIncomeForm.notes} onChange={(e) => setOtherIncomeForm({ ...otherIncomeForm, notes: e.target.value })} />
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="ghost" onClick={() => setOtherIncomeModalOpen(false)}>Cancelar</Button>
+            <Button type="submit">Crear Ingreso</Button>
           </div>
         </form>
       </Modal>

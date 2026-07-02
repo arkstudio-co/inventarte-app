@@ -132,7 +132,7 @@ export default function ProductDetailPage() {
       return
     }
 
-    router.push('/inventory')
+    router.push('/inventory/stock')
   }
 
   if (isLoading) {

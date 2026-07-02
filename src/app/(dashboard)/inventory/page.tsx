@@ -8,7 +8,6 @@ import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import { DateFilter, computeDateRange } from '@/components/ui/DateFilter'
 import type { DateFilterState } from '@/components/ui/DateFilter'
-import { CreateProductModal } from '@/components/inventory/CreateProductModal'
 import { WithdrawalModal } from '@/components/inventory/WithdrawalModal'
 import {
   Plus,
@@ -66,7 +65,6 @@ export default function InventoryMovementsPage() {
     customEnd: '',
   })
 
-  const [showCreateModal, setShowCreateModal] = useState(false)
   const [showEntryModal, setShowEntryModal] = useState(false)
   const [withdrawalProduct, setWithdrawalProduct] = useState<string | null>(null)
 
@@ -311,7 +309,7 @@ export default function InventoryMovementsPage() {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold text-[var(--ink)]">Movimientos</h1>
+          <h1 className="text-xl font-semibold text-[var(--ink)]">Inventario</h1>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {Array.from({ length: 4 }).map((_, i) => (
@@ -338,7 +336,7 @@ export default function InventoryMovementsPage() {
   if (error) {
     return (
       <div className="space-y-6">
-        <h1 className="text-xl font-semibold text-[var(--ink)]">Movimientos</h1>
+        <h1 className="text-xl font-semibold text-[var(--ink)]">Inventario</h1>
         <div className="rounded-[var(--radius-md)] bg-[var(--surface-1)] border border-[var(--border-default)] p-8 text-center">
           <AlertTriangle size={40} className="mx-auto mb-3 text-[var(--danger)]" />
           <p className="text-sm text-[var(--danger)] mb-4">{error}</p>
@@ -355,7 +353,7 @@ export default function InventoryMovementsPage() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-[var(--ink)]">Movimientos</h1>
+          <h1 className="text-xl font-semibold text-[var(--ink)]">Inventario</h1>
           <p className="text-sm text-[var(--ink-tertiary)] mt-0.5">
             {movements.length} movimientos &middot; {products.length} productos activos
           </p>
@@ -366,9 +364,6 @@ export default function InventoryMovementsPage() {
           </Button>
           <Button variant="secondary" size="sm" onClick={() => setWithdrawalProduct('')}>
             <TrendingDown size={14} /> Salida
-          </Button>
-          <Button size="sm" onClick={() => setShowCreateModal(true)}>
-            <Package size={14} /> Producto
           </Button>
         </div>
       </div>
@@ -444,9 +439,6 @@ export default function InventoryMovementsPage() {
             <div className="flex items-center justify-center gap-2 mt-4">
               <Button variant="secondary" onClick={() => setShowEntryModal(true)}>
                 <Plus size={14} /> Registrar entrada
-              </Button>
-              <Button variant="secondary" onClick={() => setShowCreateModal(true)}>
-                <Package size={14} /> Crear producto
               </Button>
             </div>
           )}
@@ -652,16 +644,6 @@ export default function InventoryMovementsPage() {
           </div>
         </div>
       )}
-
-      {/* Create Product Modal */}
-      <CreateProductModal
-        isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        onSuccess={() => {
-          setShowCreateModal(false)
-          fetchData()
-        }}
-      />
 
       {/* Stock Entry Modal */}
       <Modal

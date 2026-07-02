@@ -265,7 +265,7 @@ export default function InventoryStockPage() {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold text-[var(--ink)]">Inventario</h1>
+          <h1 className="text-xl font-semibold text-[var(--ink)]">Productos</h1>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {Array.from({ length: 4 }).map((_, i) => (
@@ -295,7 +295,7 @@ export default function InventoryStockPage() {
   if (error) {
     return (
       <div className="space-y-6">
-        <h1 className="text-xl font-semibold text-[var(--ink)]">Inventario</h1>
+        <h1 className="text-xl font-semibold text-[var(--ink)]">Productos</h1>
         <div className="rounded-[var(--radius-md)] bg-[var(--surface-1)] border border-[var(--border-default)] p-8 text-center">
           <AlertTriangle size={40} className="mx-auto mb-3 text-[var(--danger)]" />
           <p className="text-sm text-[var(--danger)] mb-4">{error}</p>
@@ -312,7 +312,7 @@ export default function InventoryStockPage() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-[var(--ink)]">Inventario</h1>
+          <h1 className="text-xl font-semibold text-[var(--ink)]">Productos</h1>
           <p className="text-sm text-[var(--ink-tertiary)] mt-0.5">
             {products.length} productos &middot; {filteredProducts.length === products.length ? '' : `${filteredProducts.length} filtrados`}
           </p>

@@ -196,6 +196,17 @@ export interface AdministrativeExpense {
   updated_at: string
 }
 
+export interface OtherIncome {
+  id: string
+  amount: number
+  description: string
+  category: string
+  income_date: string
+  notes: string | null
+  created_by: string
+  created_at: string
+}
+
 export interface CompanyInfo {
   id: string
   hero_title: string
