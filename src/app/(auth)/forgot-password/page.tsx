@@ -2,15 +2,13 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
 import { forgotPasswordSchema } from '@/lib/validations/auth'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 
 export default function ForgotPasswordPage() {
-  const supabase = createClient()
   const [email, setEmail] = useState('')
-  const [sent, setSent] = useState(false)
+  const [recoveryLink, setRecoveryLink] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
@@ -25,34 +23,45 @@ export default function ForgotPasswordPage() {
     }
 
     setIsLoading(true)
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin
     sessionStorage.setItem('auth_next', '/reset-password')
-    const { error: authError } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${siteUrl}/callback`,
-    })
 
-    if (authError) {
-      setError(authError.message)
+    const res = await fetch('/api/auth/generate-recovery-link', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    })
+    const data = await res.json()
+
+    if (!res.ok) {
+      setError(data.error)
       setIsLoading(false)
       return
     }
 
-    setSent(true)
+    setRecoveryLink(data.url)
     setIsLoading(false)
   }
 
-  if (sent) {
+  if (recoveryLink) {
     return (
       <div className="space-y-6 text-center">
         <div className="space-y-2">
-          <h1 className="text-xl font-semibold text-[var(--ink)]">Revisa tu correo</h1>
+          <h1 className="text-xl font-semibold text-[var(--ink)]">Enlace de recuperación</h1>
           <p className="text-sm text-[var(--ink-tertiary)]">
-            Si existe una cuenta con ese correo, recibirás un enlace de recuperación.
+            Haz clic en el enlace para restablecer tu contraseña:
           </p>
         </div>
-        <Link href="/">
-          <Button variant="secondary">Volver al inicio</Button>
-        </Link>
+        <a
+          href={recoveryLink}
+          className="inline-block text-sm text-[var(--accent)] hover:text-[var(--accent-hover)] underline underline-offset-2 break-all"
+        >
+          {recoveryLink}
+        </a>
+        <div className="pt-2">
+          <Link href="/">
+            <Button variant="secondary">Volver al inicio</Button>
+          </Link>
+        </div>
       </div>
     )
   }
@@ -62,7 +71,7 @@ export default function ForgotPasswordPage() {
       <div className="text-center space-y-2">
         <h1 className="text-xl font-semibold text-[var(--ink)]">Recuperar Contraseña</h1>
         <p className="text-sm text-[var(--ink-tertiary)]">
-          Ingresa tu correo y te enviaremos un enlace de recuperación.
+          Ingresa tu correo para generar un enlace de recuperación.
         </p>
       </div>
 
@@ -84,7 +93,7 @@ export default function ForgotPasswordPage() {
         )}
 
         <Button type="submit" className="w-full" disabled={isLoading}>
-          {isLoading ? 'Enviando...' : 'Enviar enlace'}
+          {isLoading ? 'Generando enlace...' : 'Generar enlace'}
         </Button>
       </form>
 
