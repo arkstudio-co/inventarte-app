@@ -45,10 +45,10 @@ export default function WalletPage() {
   const [balanceAdminExpenses, setBalanceAdminExpenses] = useState(0)
 
   const [adminModalOpen, setAdminModalOpen] = useState(false)
-  const [adminForm, setAdminForm] = useState({ description: '', amount: 0, category: '', type: 'variable' as 'fixed' | 'variable', expense_date: '', notes: '' })
+  const [adminForm, setAdminForm] = useState<{ description: string; amount: number | ''; category: string; type: 'fixed' | 'variable'; expense_date: string; notes: string }>({ description: '', amount: '', category: '', type: 'variable', expense_date: '', notes: '' })
 
   const [apModalOpen, setApModalOpen] = useState(false)
-  const [apForm, setApForm] = useState({ supplier_id: '', amount: 0, description: '', due_date: '' })
+  const [apForm, setApForm] = useState<{ supplier_id: string; amount: number | ''; description: string; due_date: string }>({ supplier_id: '', amount: '', description: '', due_date: '' })
 
   const [incomeTotals, setIncomeTotals] = useState(0)
   const [expenseTotals, setExpenseTotals] = useState(0)
@@ -114,14 +114,14 @@ export default function WalletPage() {
   const handleCreateAp = async (e: React.FormEvent) => {
     e.preventDefault()
     const payload: any = {
-      amount: apForm.amount,
+      amount: apForm.amount === '' ? 0 : apForm.amount,
       description: apForm.description || null,
       due_date: apForm.due_date || null,
     }
     if (apForm.supplier_id) payload.supplier_id = apForm.supplier_id
     await supabase.from('accounts_payable').insert(payload)
     setApModalOpen(false)
-    setApForm({ supplier_id: '', amount: 0, description: '', due_date: '' })
+    setApForm({ supplier_id: '', amount: '', description: '', due_date: '' })
     fetchAll()
   }
 
@@ -141,7 +141,7 @@ export default function WalletPage() {
     e.preventDefault()
     const payload = {
       description: adminForm.description,
-      amount: adminForm.amount,
+      amount: adminForm.amount === '' ? 0 : adminForm.amount,
       category: adminForm.category || null,
       type: adminForm.type,
       expense_date: adminForm.expense_date || null,
@@ -149,7 +149,7 @@ export default function WalletPage() {
     }
     await supabase.from('administrative_expenses').insert(payload)
     setAdminModalOpen(false)
-    setAdminForm({ description: '', amount: 0, category: '', type: 'variable', expense_date: '', notes: '' })
+    setAdminForm({ description: '', amount: '', category: '', type: 'variable', expense_date: '', notes: '' })
     fetchAll()
   }
 
@@ -458,7 +458,7 @@ export default function WalletPage() {
               ))}
             </select>
           </div>
-          <Input label="Monto" type="number" value={apForm.amount} onChange={(e) => setApForm({ ...apForm, amount: Number(e.target.value) })} required min={1} />
+          <Input label="Monto" type="number" value={apForm.amount} onChange={(e) => setApForm({ ...apForm, amount: e.target.value === '' ? '' : Number(e.target.value) })} required min={1} />
           <Input label="Descripción" value={apForm.description} onChange={(e) => setApForm({ ...apForm, description: e.target.value })} />
           <Input label="Fecha de vencimiento" type="date" value={apForm.due_date} onChange={(e) => setApForm({ ...apForm, due_date: e.target.value })} />
           <div className="flex justify-end gap-2 pt-2">
@@ -472,7 +472,7 @@ export default function WalletPage() {
       <Modal isOpen={adminModalOpen} onClose={() => setAdminModalOpen(false)} title="Agregar Gasto Administrativo">
         <form onSubmit={handleCreateAdmin} className="space-y-4">
           <Input label="Descripción" value={adminForm.description} onChange={(e) => setAdminForm({ ...adminForm, description: e.target.value })} required />
-          <Input label="Monto" type="number" value={adminForm.amount} onChange={(e) => setAdminForm({ ...adminForm, amount: Number(e.target.value) })} required min={1} />
+          <Input label="Monto" type="number" value={adminForm.amount} onChange={(e) => setAdminForm({ ...adminForm, amount: e.target.value === '' ? '' : Number(e.target.value) })} required min={1} />
           <Input label="Categoría" value={adminForm.category} onChange={(e) => setAdminForm({ ...adminForm, category: e.target.value })} placeholder="ej. Arriendo, Servicios, Papelería" />
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-[var(--ink-secondary)]">Tipo</label>

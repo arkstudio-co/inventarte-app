@@ -26,10 +26,10 @@ export function CreateProductModal({ isOpen, onClose, onSuccess }: CreateProduct
   const [form, setForm] = useState<ProductFormData>({
     name: '',
     description: '',
-    stock: 0,
-    min_stock: 0,
-    price: 0,
-    cost: 0,
+    stock: '',
+    min_stock: '',
+    price: '',
+    cost: '',
     gramaje: '',
     supplier_id: '',
     image_url: '',
@@ -43,10 +43,10 @@ export function CreateProductModal({ isOpen, onClose, onSuccess }: CreateProduct
       setForm({
         name: '',
         description: '',
-        stock: 0,
-        min_stock: 0,
-        price: 0,
-        cost: 0,
+        stock: '',
+        min_stock: '',
+        price: '',
+        cost: '',
         gramaje: '',
         supplier_id: '',
         image_url: '',
@@ -78,10 +78,10 @@ export function CreateProductModal({ isOpen, onClose, onSuccess }: CreateProduct
       sku,
       name: form.name,
       description: form.description || null,
-      stock: form.stock,
-      min_stock: form.min_stock,
-      price: form.price,
-      cost: form.cost,
+      stock: form.stock === '' ? 0 : form.stock,
+      min_stock: form.min_stock === '' ? 0 : form.min_stock,
+      price: form.price === '' ? 0 : form.price,
+      cost: form.cost === '' ? 0 : form.cost,
       gramaje: form.gramaje ? Number(form.gramaje) : null,
       supplier_id: form.supplier_id || null,
       image_url: form.image_url || null,
@@ -153,7 +153,7 @@ export function CreateProductModal({ isOpen, onClose, onSuccess }: CreateProduct
             label="Stock"
             type="number"
             value={form.stock}
-            onChange={(e) => updateField('stock', Number(e.target.value))}
+            onChange={(e) => updateField('stock', e.target.value === '' ? '' : Number(e.target.value))}
             required
           />
           <Input
@@ -161,7 +161,7 @@ export function CreateProductModal({ isOpen, onClose, onSuccess }: CreateProduct
             label="Stock mínimo"
             type="number"
             value={form.min_stock}
-            onChange={(e) => updateField('min_stock', Number(e.target.value))}
+            onChange={(e) => updateField('min_stock', e.target.value === '' ? '' : Number(e.target.value))}
             required
           />
         </div>
@@ -173,7 +173,7 @@ export function CreateProductModal({ isOpen, onClose, onSuccess }: CreateProduct
             type="number"
             step="0.01"
             value={form.price}
-            onChange={(e) => updateField('price', Number(e.target.value))}
+            onChange={(e) => updateField('price', e.target.value === '' ? '' : Number(e.target.value))}
             required
           />
           <Input
@@ -182,7 +182,7 @@ export function CreateProductModal({ isOpen, onClose, onSuccess }: CreateProduct
             type="number"
             step="0.01"
             value={form.cost}
-            onChange={(e) => updateField('cost', Number(e.target.value))}
+            onChange={(e) => updateField('cost', e.target.value === '' ? '' : Number(e.target.value))}
             required
           />
           <Input

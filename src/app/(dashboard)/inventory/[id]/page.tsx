@@ -25,30 +25,31 @@ export default function ProductDetailPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState('')
   const [showStockEntry, setShowStockEntry] = useState(false)
-  const [entryQuantity, setEntryQuantity] = useState(1)
+  const [entryQuantity, setEntryQuantity] = useState<number | ''>(1)
   const [entryObservations, setEntryObservations] = useState('')
   const [entryPaymentStatus, setEntryPaymentStatus] = useState<'paid' | 'pending'>('pending')
   const [isAddingStock, setIsAddingStock] = useState(false)
   const [showInlineAddStock, setShowInlineAddStock] = useState(false)
-  const [inlineAddQty, setInlineAddQty] = useState(1)
+  const [inlineAddQty, setInlineAddQty] = useState<number | ''>(1)
   const [suggestedPrice, setSuggestedPrice] = useState('')
 
   const handleInlineAddStock = async () => {
-    if (inlineAddQty < 1) return
+    const qty = inlineAddQty === '' ? 0 : inlineAddQty
+    if (qty < 1) return
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
     await supabase.from('stock_entries').insert({
       product_id: params.id,
-      quantity: inlineAddQty,
+      quantity: qty,
       payment_status: 'pending',
       observations: 'Añadido desde edición',
       created_by: user.id,
     })
     await supabase.rpc('increment_stock', {
       p_product_id: params.id,
-      p_quantity: inlineAddQty,
+      p_quantity: qty,
     })
-    setForm((prev) => ({ ...prev, stock: prev.stock + inlineAddQty }))
+    setForm((prev) => ({ ...prev, stock: (prev.stock === '' ? 0 : prev.stock) + qty }))
     setShowInlineAddStock(false)
     setInlineAddQty(1)
   }
@@ -56,10 +57,10 @@ export default function ProductDetailPage() {
   const [form, setForm] = useState<ProductFormData>({
     name: '',
     description: '',
-    stock: 0,
-    min_stock: 0,
-    price: 0,
-    cost: 0,
+    stock: '',
+    min_stock: '',
+    price: '',
+    cost: '',
     gramaje: '',
     supplier_id: '',
     image_url: '',
@@ -113,10 +114,10 @@ export default function ProductDetailPage() {
         .update({
           name: form.name,
           description: form.description || null,
-          stock: form.stock,
-          min_stock: form.min_stock,
-          price: form.price,
-          cost: form.cost,
+          stock: form.stock === '' ? 0 : form.stock,
+          min_stock: form.min_stock === '' ? 0 : form.min_stock,
+          price: form.price === '' ? 0 : form.price,
+          cost: form.cost === '' ? 0 : form.cost,
           suggested_price: suggestedPrice ? Number(suggestedPrice) : null,
           gramaje: form.gramaje ? Number(form.gramaje) : null,
           supplier_id: form.supplier_id || null,
@@ -183,7 +184,7 @@ export default function ProductDetailPage() {
                       type="number"
                       min={1}
                       value={inlineAddQty}
-                      onChange={(e) => setInlineAddQty(Number(e.target.value))}
+                      onChange={(e) => setInlineAddQty(e.target.value === '' ? '' : Number(e.target.value))}
                       className="w-20 px-2 py-1 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors"
                     />
                     <button
@@ -196,12 +197,12 @@ export default function ProductDetailPage() {
                   </div>
                 )}
               </div>
-              <Input label="Stock mínimo" type="number" value={form.min_stock} onChange={(e) => setForm({ ...form, min_stock: Number(e.target.value) })} required />
+              <Input label="Stock mínimo" type="number" value={form.min_stock} onChange={(e) => setForm({ ...form, min_stock: e.target.value === '' ? '' : Number(e.target.value) })} required />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <Input label="Precio producción" type="number" step="0.01" value={form.cost} onChange={(e) => setForm({ ...form, cost: Number(e.target.value) })} required />
-              <Input label="Precio venta vendedores" type="number" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: Number(e.target.value) })} required />
+              <Input label="Precio producción" type="number" step="0.01" value={form.cost} onChange={(e) => setForm({ ...form, cost: e.target.value === '' ? '' : Number(e.target.value) })} required />
+              <Input label="Precio venta vendedores" type="number" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value === '' ? '' : Number(e.target.value) })} required />
             </div>
 
             <Input
@@ -333,20 +334,21 @@ export default function ProductDetailPage() {
       >
         <form onSubmit={async (e) => {
           e.preventDefault()
-          if (entryQuantity < 1) return
+          const qty = entryQuantity === '' ? 0 : entryQuantity
+          if (qty < 1) return
           setIsAddingStock(true)
           const { data: { user } } = await supabase.auth.getUser()
           if (!user) { setIsAddingStock(false); return }
           await supabase.from('stock_entries').insert({
             product_id: product.id,
-            quantity: entryQuantity,
+            quantity: qty,
             payment_status: entryPaymentStatus,
             observations: entryObservations || null,
             created_by: user.id,
           })
           await supabase.rpc('increment_stock', {
             p_product_id: product.id,
-            p_quantity: entryQuantity,
+            p_quantity: qty,
           })
           setIsAddingStock(false)
           setShowStockEntry(false)
@@ -360,7 +362,7 @@ export default function ProductDetailPage() {
             type="number"
             min={1}
             value={entryQuantity}
-            onChange={(e) => setEntryQuantity(Number(e.target.value))}
+            onChange={(e) => setEntryQuantity(e.target.value === '' ? '' : Number(e.target.value))}
             required
           />
           <div className="space-y-1.5">

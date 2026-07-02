@@ -371,11 +371,19 @@ function AssignProductModal({ sellerId, products, onAssigned }: { sellerId: stri
   const supabase = createClient()
   const router = useRouter()
   const [open, setOpen] = useState(false)
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<{
+    product_id: string
+    quantity: number | ''
+    delivery_type: 'paid' | 'pending'
+    payment_method: 'cash' | 'transfer'
+    bank_account: string
+    card_last_four: string
+    payment_observations: string
+  }>({
     product_id: '',
-    quantity: 1,
-    delivery_type: 'pending' as 'paid' | 'pending',
-    payment_method: 'cash' as 'cash' | 'transfer',
+    quantity: '',
+    delivery_type: 'pending',
+    payment_method: 'cash',
     bank_account: '',
     card_last_four: '',
     payment_observations: '',
@@ -387,7 +395,8 @@ function AssignProductModal({ sellerId, products, onAssigned }: { sellerId: stri
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.product_id || form.quantity < 1) return
+    const qty = form.quantity === '' ? 0 : form.quantity
+    if (!form.product_id || qty < 1) return
     if (form.delivery_type === 'paid' && form.payment_method === 'transfer' && (!form.bank_account.trim() || form.card_last_four.length !== 4)) {
       setError('Completa la cuenta bancaria y los últimos 4 dígitos')
       return
@@ -406,7 +415,7 @@ function AssignProductModal({ sellerId, products, onAssigned }: { sellerId: stri
       items: [{
         product_id: form.product_id,
         product_name: selectedProduct?.name || '',
-        quantity: form.quantity,
+        quantity: qty,
         unit_price: selectedProduct?.price || 0,
       }],
     }
@@ -434,7 +443,7 @@ function AssignProductModal({ sellerId, products, onAssigned }: { sellerId: stri
     const remision = await res.json()
     setSaving(false)
     setOpen(false)
-    setForm({ product_id: '', quantity: 1, delivery_type: 'pending', payment_method: 'cash', bank_account: '', card_last_four: '', payment_observations: '' })
+    setForm({ product_id: '', quantity: '', delivery_type: 'pending', payment_method: 'cash', bank_account: '', card_last_four: '', payment_observations: '' })
     onAssigned()
     router.push(`/colaboradores/remisiones/${remision.id}`)
   }
@@ -463,7 +472,7 @@ function AssignProductModal({ sellerId, products, onAssigned }: { sellerId: stri
             ))}
           </select>
 
-          <Input label="Cantidad" type="number" min={1} value={form.quantity} onChange={(e) => setForm({ ...form, quantity: Number(e.target.value) })} required />
+          <Input label="Cantidad" type="number" min={1} value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value === '' ? '' : Number(e.target.value) })} required />
 
           <select
             value={form.delivery_type}
@@ -540,22 +549,23 @@ function AssignProductModal({ sellerId, products, onAssigned }: { sellerId: stri
 function RegisterReturnModal({ sellerId, products, onRegistered }: { sellerId: string; products: Product[]; onRegistered: () => void }) {
   const supabase = createClient()
   const [open, setOpen] = useState(false)
-  const [form, setForm] = useState({ product_id: '', quantity: 1, observations: '' })
+  const [form, setForm] = useState({ product_id: '', quantity: '' as number | '', observations: '' })
   const [saving, setSaving] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.product_id || form.quantity < 1) return
+    const qty = form.quantity === '' ? 0 : form.quantity
+    if (!form.product_id || qty < 1) return
     setSaving(true)
     await supabase.from('returns').insert({
       seller_id: sellerId,
       product_id: form.product_id,
-      quantity: form.quantity,
+      quantity: qty,
       observations: form.observations || null,
     })
     setSaving(false)
     setOpen(false)
-    setForm({ product_id: '', quantity: 1, observations: '' })
+    setForm({ product_id: '', quantity: '', observations: '' })
     onRegistered()
   }
 
@@ -580,7 +590,7 @@ function RegisterReturnModal({ sellerId, products, onRegistered }: { sellerId: s
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
           </select>
-          <Input label="Cantidad" type="number" min={1} value={form.quantity} onChange={(e) => setForm({ ...form, quantity: Number(e.target.value) })} required />
+          <Input label="Cantidad" type="number" min={1} value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value === '' ? '' : Number(e.target.value) })} required />
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-[var(--ink-secondary)]">Observaciones</label>
             <textarea
@@ -603,17 +613,18 @@ function RegisterReturnModal({ sellerId, products, onRegistered }: { sellerId: s
 function RegisterPaymentModal({ sellerId, onRegistered }: { sellerId: string; onRegistered: () => void }) {
   const supabase = createClient()
   const [open, setOpen] = useState(false)
-  const [form, setForm] = useState({ amount: 0, observations: '', payment_method: 'cash' as 'cash' | 'transfer', bank_account: '', card_last_four: '' })
+  const [form, setForm] = useState({ amount: '' as number | '', observations: '', payment_method: 'cash' as 'cash' | 'transfer', bank_account: '', card_last_four: '' })
   const [saving, setSaving] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (form.amount <= 0) return
+    const amt = form.amount === '' ? 0 : form.amount
+    if (amt <= 0) return
     if (form.payment_method === 'transfer' && (!form.bank_account.trim() || form.card_last_four.length !== 4)) return
     setSaving(true)
     await supabase.from('payments').insert({
       seller_id: sellerId,
-      amount: form.amount,
+      amount: amt,
       payment_method: form.payment_method,
       bank_account: form.payment_method === 'transfer' ? form.bank_account.trim() : null,
       card_last_four: form.payment_method === 'transfer' ? form.card_last_four : null,
@@ -621,7 +632,7 @@ function RegisterPaymentModal({ sellerId, onRegistered }: { sellerId: string; on
     })
     setSaving(false)
     setOpen(false)
-    setForm({ amount: 0, observations: '', payment_method: 'cash', bank_account: '', card_last_four: '' })
+    setForm({ amount: '', observations: '', payment_method: 'cash', bank_account: '', card_last_four: '' })
     onRegistered()
   }
 
@@ -635,7 +646,7 @@ function RegisterPaymentModal({ sellerId, onRegistered }: { sellerId: string; on
       </button>
       <Modal isOpen={open} onClose={() => setOpen(false)} title="Registrar Pago">
         <form onSubmit={handleSubmit} className="space-y-4">
-          <Input label="Monto" type="number" step="0.01" min={1} value={form.amount} onChange={(e) => setForm({ ...form, amount: Number(e.target.value) })} required />
+          <Input label="Monto" type="number" step="0.01" min={1} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value === '' ? '' : Number(e.target.value) })} required />
 
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-[var(--ink-secondary)]">Método de pago</label>

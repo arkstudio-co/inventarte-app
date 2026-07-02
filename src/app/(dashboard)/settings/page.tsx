@@ -28,11 +28,18 @@ export default function ConceptoGastosPage() {
 
   const [showExpenseModal, setShowExpenseModal] = useState(false)
   const [editingExpense, setEditingExpense] = useState<AdministrativeExpense | null>(null)
-  const [expenseForm, setExpenseForm] = useState({
+  const [expenseForm, setExpenseForm] = useState<{
+    description: string
+    amount: number | ''
+    category: string
+    type: 'fixed' | 'variable'
+    expense_date: string
+    notes: string
+  }>({
     description: '',
-    amount: 0,
+    amount: '',
     category: '',
-    type: 'variable' as 'fixed' | 'variable',
+    type: 'variable',
     expense_date: '',
     notes: '',
   })
@@ -67,7 +74,7 @@ export default function ConceptoGastosPage() {
     setEditingExpense(null)
     setExpenseForm({
       description: '',
-      amount: 0,
+      amount: '',
       category: '',
       type,
       expense_date: new Date().toISOString().split('T')[0],
@@ -95,7 +102,7 @@ export default function ConceptoGastosPage() {
 
     const payload = {
       description: expenseForm.description,
-      amount: expenseForm.amount,
+      amount: expenseForm.amount === '' ? 0 : expenseForm.amount,
       category: expenseForm.category || 'other',
       type: expenseForm.type,
       expense_date: expenseForm.expense_date,
@@ -417,7 +424,7 @@ export default function ConceptoGastosPage() {
             type="number"
             min={1}
             value={expenseForm.amount}
-            onChange={(e) => setExpenseForm({ ...expenseForm, amount: Number(e.target.value) })}
+            onChange={(e) => setExpenseForm({ ...expenseForm, amount: e.target.value === '' ? '' : Number(e.target.value) })}
             required
           />
           <Input
