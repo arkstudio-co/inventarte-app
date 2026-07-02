@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
+import { ImageUpload } from '@/components/ui/ImageUpload'
 import { ArrowLeft, Package, Edit2, Plus } from 'lucide-react'
 import type { Product, Supplier } from '@/types/database'
 
@@ -163,6 +164,11 @@ export default function ProductDetailPage() {
             />
 
             <p className="text-xs text-[var(--ink-tertiary)] font-mono">{product.sku}</p>
+
+            <ImageUpload
+              value={form.image_url || ''}
+              onChange={(url) => setForm({ ...form, image_url: url })}
+            />
 
             <div className="grid grid-cols-2 gap-4">
               <div className="flex flex-col gap-1.5">

@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Modal } from '@/components/ui/Modal'
-import { Upload } from 'lucide-react'
+import { ImageUpload } from '@/components/ui/ImageUpload'
 
 interface CreateProductModalProps {
   isOpen: boolean
@@ -110,23 +110,10 @@ export function CreateProductModal({ isOpen, onClose, onSuccess }: CreateProduct
           <p className="text-sm font-mono text-[var(--ink)] mt-1">{sku}</p>
         </div>
 
-        <div className="space-y-1">
-          <label className="text-sm font-medium text-[var(--ink-secondary)]">Imagen del producto</label>
-          <div className="flex items-center gap-3">
-            <div className="w-16 h-16 rounded-[var(--radius-sm)] bg-[var(--surface-0)] border border-[var(--border-default)] flex items-center justify-center text-[var(--ink-muted)] overflow-hidden shrink-0">
-              {form.image_url ? (
-                <img src={form.image_url} alt="" className="w-full h-full object-cover" />
-              ) : (
-                <Upload size={20} />
-              )}
-            </div>
-            <Input
-              placeholder="URL de la imagen"
-              value={form.image_url || ''}
-              onChange={(e) => updateField('image_url', e.target.value)}
-            />
-          </div>
-        </div>
+        <ImageUpload
+          value={form.image_url || ''}
+          onChange={(url) => updateField('image_url', url)}
+        />
 
         <Input
           id="name"
