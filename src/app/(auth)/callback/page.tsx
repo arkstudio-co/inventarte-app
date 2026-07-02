@@ -15,7 +15,15 @@ function CallbackHandler() {
     const next = searchParams.get('next') ?? '/dashboard'
 
     if (code) {
-      window.location.href = `/api/auth/callback?code=${code}&next=${next}`
+      ;(async () => {
+        const { error } = await supabase.auth.exchangeCodeForSession(code)
+        handled.current = true
+        if (!error) {
+          router.push(next)
+        } else {
+          router.push('/')
+        }
+      })()
       return
     }
 
