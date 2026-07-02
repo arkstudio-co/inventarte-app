@@ -13,6 +13,7 @@ import {
   Box,
   ArrowUpDown,
   Receipt,
+  Users,
 } from 'lucide-react'
 
 const navItems = [
@@ -20,6 +21,7 @@ const navItems = [
   { href: '/inventory/stock', label: 'Inventario', icon: Box },
   { href: '/inventory', label: 'Movimientos', icon: ArrowUpDown },
   { href: '/settings', label: 'Concepto de Gastos', icon: Receipt },
+  { href: '/users', label: 'Usuarios', icon: Users },
   { href: '/colaboradores', label: 'Colaboradores', icon: UserCheck },
   { href: '/landing-admin', label: 'Landing Admin', icon: Palette },
 ]
@@ -32,6 +34,11 @@ interface SidebarProps {
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname()
   const { signOut, user, profile } = useAuth()
+
+  const handleSignOut = async () => {
+    await signOut()
+    window.location.href = '/'
+  }
 
   return (
     <>
@@ -89,7 +96,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               <p className="text-xs text-[var(--ink-tertiary)] capitalize">{profile?.role}</p>
             </div>
             <button
-              onClick={signOut}
+              onClick={handleSignOut}
               className="flex items-center gap-3 w-full px-3 py-2 text-sm text-[var(--ink-secondary)] hover:text-[var(--danger)] hover:bg-[var(--danger-light)] rounded-[var(--radius-sm)] transition-colors cursor-pointer border border-transparent hover:border-[var(--danger)]/20"
             >
               <LogOut size={18} />

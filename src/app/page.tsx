@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { loginSchema } from '@/lib/validations/auth'
+import { loginSchema, registerSchema } from '@/lib/validations/auth'
 import { contactSchema } from '@/lib/validations/contact'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -38,6 +38,11 @@ export default function LandingPage() {
   const [loginPassword, setLoginPassword] = useState('')
   const [loginError, setLoginError] = useState('')
   const [isLoggingIn, setIsLoggingIn] = useState(false)
+  const [isRegisterMode, setIsRegisterMode] = useState(false)
+  const [registerForm, setRegisterForm] = useState({ full_name: '', email: '', password: '', confirmPassword: '' })
+  const [registerError, setRegisterError] = useState('')
+  const [registerSuccess, setRegisterSuccess] = useState(false)
+  const [isRegistering, setIsRegistering] = useState(false)
   const [contactForm, setContactForm] = useState({ name: '', email: '', phone: '', message: '' })
   const [contactSent, setContactSent] = useState(false)
   const [contactError, setContactError] = useState('')
@@ -77,6 +82,35 @@ export default function LandingPage() {
     }
 
     router.push('/wallet')
+  }
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setRegisterError('')
+
+    const result = registerSchema.safeParse(registerForm)
+    if (!result.success) {
+      setRegisterError(result.error.issues[0].message)
+      return
+    }
+
+    setIsRegistering(true)
+    const { error } = await supabase.auth.signUp({
+      email: registerForm.email,
+      password: registerForm.password,
+      options: {
+        data: { full_name: registerForm.full_name },
+      },
+    })
+
+    if (error) {
+      setRegisterError(error.message)
+      setIsRegistering(false)
+      return
+    }
+
+    setRegisterSuccess(true)
+    setIsRegistering(false)
   }
 
   const handleContact = async (e: React.FormEvent) => {
@@ -152,35 +186,111 @@ export default function LandingPage() {
             </div>
 
             <div className="bg-white rounded-[var(--radius-xl)] shadow-[var(--shadow-elevated)] p-6 lg:p-8">
-              <h2 className="text-xl font-semibold text-[var(--ink)] mb-1">Iniciar Sesión</h2>
-              <p className="text-sm text-[var(--ink-tertiary)] mb-6">Accede al panel de administración</p>
-              <form onSubmit={handleLogin} className="space-y-4">
-                <Input
-                  placeholder="Correo electrónico"
-                  type="email"
-                  value={loginEmail}
-                  onChange={(e) => setLoginEmail(e.target.value)}
-                  required
-                />
-                <Input
-                  placeholder="Contraseña"
-                  type="password"
-                  value={loginPassword}
-                  onChange={(e) => setLoginPassword(e.target.value)}
-                  required
-                />
-                {loginError && (
-                  <p className="text-sm text-[var(--danger)]">{loginError}</p>
-                )}
-                <Button type="submit" className="w-full" disabled={isLoggingIn}>
-                  {isLoggingIn ? 'Ingresando...' : 'Iniciar Sesión'}
-                </Button>
-                <div className="text-center">
-                  <a href="/forgot-password" className="text-xs text-[var(--primary)] hover:underline">
-                    ¿Olvidaste tu contraseña?
-                  </a>
+              <div className="flex rounded-[var(--radius-md)] bg-[var(--surface-muted)] p-0.5 mb-6">
+                <button
+                  type="button"
+                  onClick={() => { setIsRegisterMode(false); setRegisterError(''); setRegisterSuccess(false) }}
+                  className={`flex-1 py-2 text-sm font-medium rounded-[var(--radius-sm)] transition-colors cursor-pointer ${
+                    !isRegisterMode
+                      ? 'bg-white text-[var(--ink)] shadow-[var(--shadow-card)]'
+                      : 'text-[var(--ink-tertiary)] hover:text-[var(--ink)]'
+                  }`}
+                >
+                  Iniciar Sesión
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setIsRegisterMode(true); setLoginError('') }}
+                  className={`flex-1 py-2 text-sm font-medium rounded-[var(--radius-sm)] transition-colors cursor-pointer ${
+                    isRegisterMode
+                      ? 'bg-white text-[var(--ink)] shadow-[var(--shadow-card)]'
+                      : 'text-[var(--ink-tertiary)] hover:text-[var(--ink)]'
+                  }`}
+                >
+                  Registrarse
+                </button>
+              </div>
+
+              {registerSuccess ? (
+                <div className="text-center py-4">
+                  <div className="w-12 h-12 rounded-full bg-[var(--success-light)] flex items-center justify-center mx-auto mb-3">
+                    <CheckCircle size={24} className="text-[var(--success)]" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-[var(--ink)] mb-1">Registro exitoso</h3>
+                  <p className="text-sm text-[var(--ink-tertiary)] mb-4">Ahora puedes iniciar sesión con tu cuenta.</p>
+                  <Button
+                    type="button"
+                    className="w-full"
+                    onClick={() => { setIsRegisterMode(false); setRegisterSuccess(false) }}
+                  >
+                    Iniciar Sesión
+                  </Button>
                 </div>
-              </form>
+              ) : isRegisterMode ? (
+                <form onSubmit={handleRegister} className="space-y-4">
+                  <Input
+                    placeholder="Nombre completo"
+                    value={registerForm.full_name}
+                    onChange={(e) => setRegisterForm({ ...registerForm, full_name: e.target.value })}
+                    required
+                  />
+                  <Input
+                    placeholder="Correo electrónico"
+                    type="email"
+                    value={registerForm.email}
+                    onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })}
+                    required
+                  />
+                  <Input
+                    placeholder="Contraseña"
+                    type="password"
+                    value={registerForm.password}
+                    onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })}
+                    required
+                  />
+                  <Input
+                    placeholder="Confirmar contraseña"
+                    type="password"
+                    value={registerForm.confirmPassword}
+                    onChange={(e) => setRegisterForm({ ...registerForm, confirmPassword: e.target.value })}
+                    required
+                  />
+                  {registerError && (
+                    <p className="text-sm text-[var(--danger)]">{registerError}</p>
+                  )}
+                  <Button type="submit" className="w-full" disabled={isRegistering}>
+                    {isRegistering ? 'Registrando...' : 'Crear Cuenta'}
+                  </Button>
+                </form>
+              ) : (
+                <form onSubmit={handleLogin} className="space-y-4">
+                  <Input
+                    placeholder="Correo electrónico"
+                    type="email"
+                    value={loginEmail}
+                    onChange={(e) => setLoginEmail(e.target.value)}
+                    required
+                  />
+                  <Input
+                    placeholder="Contraseña"
+                    type="password"
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    required
+                  />
+                  {loginError && (
+                    <p className="text-sm text-[var(--danger)]">{loginError}</p>
+                  )}
+                  <Button type="submit" className="w-full" disabled={isLoggingIn}>
+                    {isLoggingIn ? 'Ingresando...' : 'Iniciar Sesión'}
+                  </Button>
+                  <div className="text-center">
+                    <a href="/forgot-password" className="text-xs text-[var(--primary)] hover:underline">
+                      ¿Olvidaste tu contraseña?
+                    </a>
+                  </div>
+                </form>
+              )}
             </div>
           </div>
         </div>
