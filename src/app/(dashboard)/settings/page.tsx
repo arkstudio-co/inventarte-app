@@ -5,6 +5,8 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
+import { DateFilter, computeDateRange } from '@/components/ui/DateFilter'
+import type { DateFilterState } from '@/components/ui/DateFilter'
 import {
   Plus,
   TrendingUp,
@@ -25,6 +27,13 @@ export default function ConceptoGastosPage() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [activeTab, setActiveTab] = useState<ActiveTab>('fixed')
   const [isLoading, setIsLoading] = useState(true)
+  const [filter, setFilter] = useState<DateFilterState>({
+    mode: 'month',
+    month: new Date().getMonth() + 1,
+    year: new Date().getFullYear(),
+    customStart: '',
+    customEnd: '',
+  })
 
   const [showExpenseModal, setShowExpenseModal] = useState(false)
   const [editingExpense, setEditingExpense] = useState<AdministrativeExpense | null>(null)
@@ -53,8 +62,16 @@ export default function ConceptoGastosPage() {
 
   const fetchData = async () => {
     setIsLoading(true)
+    const { startDate: sd, endDate: ed } = computeDateRange(filter)
+    const startDate = sd ? sd.toISOString() : null
+    const endDate = ed ? ed.toISOString() : null
+
+    let expensesQuery = supabase.from('administrative_expenses').select('*')
+    if (startDate) expensesQuery = expensesQuery.gte('expense_date', startDate).lt('expense_date', endDate)
+    expensesQuery = expensesQuery.order('created_at', { ascending: false })
+
     const [expensesRes, suppliersRes] = await Promise.all([
-      supabase.from('administrative_expenses').select('*').order('created_at', { ascending: false }),
+      expensesQuery,
       supabase.from('suppliers').select('*').order('name'),
     ])
     if (expensesRes.data) setExpenses(expensesRes.data as AdministrativeExpense[])
@@ -62,7 +79,7 @@ export default function ConceptoGastosPage() {
     setIsLoading(false)
   }
 
-  useEffect(() => { fetchData() }, [])
+  useEffect(() => { fetchData() }, [filter])
 
   const fixedExpenses = expenses.filter((e) => e.type === 'fixed')
   const variableExpenses = expenses.filter((e) => e.type === 'variable')
@@ -212,8 +229,9 @@ export default function ConceptoGastosPage() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-xl font-semibold text-[var(--ink)]">Concepto de Gastos</h1>
+        <DateFilter value={filter} onChange={setFilter} />
       </div>
 
       {/* Tabs: Fijos / Variables / Proveedores */}

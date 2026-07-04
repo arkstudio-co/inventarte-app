@@ -6,8 +6,6 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
-import { DateFilter, computeDateRange } from '@/components/ui/DateFilter'
-import type { DateFilterState } from '@/components/ui/DateFilter'
 import { Plus, UserCheck, Package, Undo2, DollarSign, FileText, ExternalLink, Pencil, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
 import type { Seller, StockWithdrawal, Return, Payment, Product, Remision } from '@/types/database'
 
@@ -15,13 +13,6 @@ export default function ColaboradoresPage() {
   const supabase = createClient()
   const [sellers, setSellers] = useState<Seller[]>([])
   const [products, setProducts] = useState<Product[]>([])
-  const [filter, setFilter] = useState<DateFilterState>({
-    mode: 'month',
-    month: new Date().getMonth() + 1,
-    year: new Date().getFullYear(),
-    customStart: '',
-    customEnd: '',
-  })
 
   const fetchSellers = async () => {
     const { data } = await supabase.from('sellers').select('*').order('name')
@@ -40,12 +31,9 @@ export default function ColaboradoresPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
+      <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-[var(--ink)]">Colaboradores</h1>
-        <div className="flex items-center gap-2">
-          <DateFilter value={filter} onChange={setFilter} />
-          <CreateSellerModal onCreated={fetchSellers} />
-        </div>
+        <CreateSellerModal onCreated={fetchSellers} />
       </div>
 
       {sellers.length === 0 ? (
@@ -61,7 +49,6 @@ export default function ColaboradoresPage() {
               seller={seller}
               products={products}
               onUpdate={fetchSellers}
-              filter={filter}
             />
           ))}
         </div>
@@ -72,11 +59,10 @@ export default function ColaboradoresPage() {
 
 /* ========== SELLER CARD ========== */
 
-function SellerCard({ seller, products, onUpdate, filter }: {
+function SellerCard({ seller, products, onUpdate }: {
   seller: Seller
   products: Product[]
   onUpdate: () => void
-  filter: DateFilterState
 }) {
   const supabase = createClient()
   const router = useRouter()
@@ -87,29 +73,14 @@ function SellerCard({ seller, products, onUpdate, filter }: {
   const [remisiones, setRemisiones] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
 
-  const fetchDetails = async (activeFilter: DateFilterState) => {
+  const fetchDetails = async () => {
     setLoading(true)
-    const { startDate: sd, endDate: ed } = computeDateRange(activeFilter)
-    const startDate = sd ? sd.toISOString() : null
-    const endDate = ed ? ed.toISOString() : null
-
-    let wQuery = supabase.from('stock_withdrawals').select('*, products(*)').eq('seller_id', seller.id)
-    if (startDate) wQuery = wQuery.gte('withdrawal_date', startDate).lt('withdrawal_date', endDate)
-    wQuery = wQuery.order('withdrawal_date', { ascending: false })
-
-    let rQuery = supabase.from('returns').select('*, products(*)').eq('seller_id', seller.id)
-    if (startDate) rQuery = rQuery.gte('created_at', startDate).lt('created_at', endDate)
-    rQuery = rQuery.order('created_at', { ascending: false })
-
-    let pQuery = supabase.from('payments').select('*').eq('seller_id', seller.id)
-    if (startDate) pQuery = pQuery.gte('created_at', startDate).lt('created_at', endDate)
-    pQuery = pQuery.order('created_at', { ascending: false })
-
-    let remQuery = supabase.from('remisiones').select('*').eq('seller_id', seller.id)
-    if (startDate) remQuery = remQuery.gte('created_at', startDate).lt('created_at', endDate)
-    remQuery = remQuery.order('created_at', { ascending: false })
-
-    const [wRes, rRes, pRes, remRes] = await Promise.all([wQuery, rQuery, pQuery, remQuery])
+    const [wRes, rRes, pRes, remRes] = await Promise.all([
+      supabase.from('stock_withdrawals').select('*, products(*)').eq('seller_id', seller.id).order('withdrawal_date', { ascending: false }),
+      supabase.from('returns').select('*, products(*)').eq('seller_id', seller.id).order('created_at', { ascending: false }),
+      supabase.from('payments').select('*').eq('seller_id', seller.id).order('created_at', { ascending: false }),
+      supabase.from('remisiones').select('*').eq('seller_id', seller.id).order('created_at', { ascending: false }),
+    ])
     if (wRes.data) setWithdrawals(wRes.data)
     if (rRes.data) setReturns(rRes.data)
     if (pRes.data) setPayments(pRes.data)
@@ -118,13 +89,9 @@ function SellerCard({ seller, products, onUpdate, filter }: {
   }
 
   const toggleExpand = () => {
-    if (!expanded) fetchDetails(filter)
+    if (!expanded) fetchDetails()
     setExpanded(!expanded)
   }
-
-  useEffect(() => {
-    if (expanded) fetchDetails(filter)
-  }, [filter])
 
   const totalPending = withdrawals
     .filter((w) => w.delivery_type === 'pending')
@@ -170,9 +137,9 @@ function SellerCard({ seller, products, onUpdate, filter }: {
           ) : (
             <>
               <div className="flex flex-wrap gap-2">
-                <AssignProductModal sellerId={seller.id} products={products} onAssigned={() => { fetchDetails(filter); onUpdate() }} />
-                <RegisterReturnModal sellerId={seller.id} products={products} onRegistered={() => { fetchDetails(filter); onUpdate() }} />
-                <RegisterPaymentModal sellerId={seller.id} onRegistered={() => { fetchDetails(filter); onUpdate() }} />
+                <AssignProductModal sellerId={seller.id} products={products} onAssigned={() => { fetchDetails(); onUpdate() }} />
+                <RegisterReturnModal sellerId={seller.id} products={products} onRegistered={() => { fetchDetails(); onUpdate() }} />
+                <RegisterPaymentModal sellerId={seller.id} onRegistered={() => { fetchDetails(); onUpdate() }} />
                 <EditSellerModal seller={seller} onUpdated={onUpdate} />
                 <button
                   onClick={async () => {
