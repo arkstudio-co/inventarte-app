@@ -6,6 +6,8 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
+import { DateFilter } from '@/components/ui/DateFilter'
+import type { DateFilterState } from '@/components/ui/DateFilter'
 import { CreateProductModal } from '@/components/inventory/CreateProductModal'
 import { WithdrawalModal } from '@/components/inventory/WithdrawalModal'
 import {
@@ -54,6 +56,14 @@ export default function InventoryStockPage() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showEntryModal, setShowEntryModal] = useState(false)
   const [withdrawalProduct, setWithdrawalProduct] = useState<string | null>(null)
+
+  const [filter, setFilter] = useState<DateFilterState>({
+    mode: 'month',
+    month: new Date().getMonth() + 1,
+    year: new Date().getFullYear(),
+    customStart: '',
+    customEnd: '',
+  })
 
   const [entryProductId, setEntryProductId] = useState('')
   const [entryQuantity, setEntryQuantity] = useState<number | ''>(1)
@@ -318,6 +328,7 @@ export default function InventoryStockPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <DateFilter value={filter} onChange={setFilter} />
           <Button variant="secondary" size="sm" onClick={() => setShowEntryModal(true)}>
             <Plus size={14} /> Entrada
           </Button>

@@ -358,17 +358,18 @@ export default function InventoryMovementsPage() {
             {movements.length} movimientos &middot; {products.length} productos activos
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="secondary" size="sm" onClick={() => setShowEntryModal(true)}>
-            <Plus size={14} /> Entrada
-          </Button>
-          <Button variant="secondary" size="sm" onClick={() => setWithdrawalProduct('')}>
-            <TrendingDown size={14} /> Salida
-          </Button>
+          <div className="flex items-center gap-2">
+            <DateFilter value={filter} onChange={setFilter} />
+            <Button variant="secondary" size="sm" onClick={() => setShowEntryModal(true)}>
+              <Plus size={14} /> Entrada
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => setWithdrawalProduct('')}>
+              <TrendingDown size={14} /> Salida
+            </Button>
+          </div>
         </div>
-      </div>
 
-      {/* Summary Cards */}
+        {/* Summary Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="rounded-[var(--radius-md)] bg-[var(--surface-1)] border border-[var(--border-default)] p-4">
           <div className="flex items-center gap-2 text-[var(--ink-tertiary)] mb-1">
@@ -414,7 +415,6 @@ export default function InventoryMovementsPage() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <DateFilter value={filter} onChange={setFilter} />
         </div>
         {hasActiveFilters && (
           <button
