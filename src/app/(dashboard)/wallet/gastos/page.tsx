@@ -19,7 +19,7 @@ export default function GastosPage() {
       icon={Building2}
       iconColor="text-[var(--warning)]"
       action={
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <Button size="sm" onClick={() => setAdminModalOpen(true)}>
             <Plus size={14} /> Gasto Administrativo
           </Button>
