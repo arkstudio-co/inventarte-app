@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils/cn'
@@ -14,16 +15,30 @@ import {
   ArrowUpDown,
   Receipt,
   Users,
+  ChevronRight,
+  ChevronDown,
 } from 'lucide-react'
 
+const walletSubItems = [
+  { href: '/wallet/ingresos', label: 'Ingresos' },
+  { href: '/wallet/cuentas-por-cobrar', label: 'Cuentas por Cobrar' },
+  { href: '/wallet/gastos', label: 'Gastos' },
+]
+
 const navItems = [
-  { href: '/wallet', label: 'Wallet', icon: Wallet },
-  { href: '/inventory/stock', label: 'Productos', icon: Box },
-  { href: '/inventory', label: 'Inventario', icon: ArrowUpDown },
-  { href: '/settings', label: 'Concepto de Gastos', icon: Receipt },
-  { href: '/users', label: 'Usuarios', icon: Users },
-  { href: '/colaboradores', label: 'Vendedores', icon: UserCheck },
-  { href: '/landing-admin', label: 'Landing Admin', icon: Palette },
+  {
+    type: 'group' as const,
+    label: 'Wallet',
+    icon: Wallet,
+    href: '/wallet',
+    children: walletSubItems,
+  },
+  { type: 'link' as const, href: '/inventory/stock', label: 'Productos', icon: Box },
+  { type: 'link' as const, href: '/inventory', label: 'Inventario', icon: ArrowUpDown },
+  { type: 'link' as const, href: '/settings', label: 'Concepto de Gastos', icon: Receipt },
+  { type: 'link' as const, href: '/users', label: 'Usuarios', icon: Users },
+  { type: 'link' as const, href: '/colaboradores', label: 'Vendedores', icon: UserCheck },
+  { type: 'link' as const, href: '/landing-admin', label: 'Landing Admin', icon: Palette },
 ]
 
 interface SidebarProps {
@@ -34,6 +49,7 @@ interface SidebarProps {
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname()
   const { signOut, user, profile } = useAuth()
+  const [walletOpen, setWalletOpen] = useState(true)
 
   const handleSignOut = async () => {
     await signOut()
@@ -69,6 +85,58 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
           <nav className="flex-1 space-y-1">
             {navItems.map((item) => {
+              if (item.type === 'group') {
+                const isGroupActive = pathname === item.href || pathname.startsWith(item.href + '/')
+                return (
+                  <div key={item.label}>
+                    <Link
+                      href={item.href}
+                      onClick={(e) => {
+                        if (pathname.startsWith(item.href)) {
+                          e.preventDefault()
+                          setWalletOpen(!walletOpen)
+                        } else {
+                          onClose()
+                        }
+                      }}
+                      className={cn(
+                        'flex items-center gap-3 px-3 py-2 text-sm rounded-[var(--radius-sm)] transition-colors',
+                        'border border-transparent w-full',
+                        isGroupActive
+                          ? 'bg-[var(--tint-light)] text-[var(--ink)] font-medium border-[var(--tint)]/30'
+                          : 'text-[var(--ink-secondary)] hover:bg-[var(--surface-1)] hover:border-[var(--border-subtle)]'
+                      )}
+                    >
+                      <item.icon size={18} />
+                      <span className="flex-1 text-left">{item.label}</span>
+                      {walletOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                    </Link>
+                    {walletOpen && (
+                      <div className="ml-3 mt-0.5 space-y-0.5 border-l border-[var(--border-subtle)] pl-2">
+                        {walletSubItems.map((sub) => {
+                          const isSubActive = pathname === sub.href
+                          return (
+                            <Link
+                              key={sub.href}
+                              href={sub.href}
+                              onClick={onClose}
+                              className={cn(
+                                'block px-3 py-1.5 text-sm rounded-[var(--radius-sm)] transition-colors',
+                                'border border-transparent',
+                                isSubActive
+                                  ? 'bg-[var(--tint-light)] text-[var(--ink)] font-medium border-[var(--tint)]/30'
+                                  : 'text-[var(--ink-tertiary)] hover:bg-[var(--surface-1)] hover:text-[var(--ink-secondary)]'
+                              )}
+                            >
+                              {sub.label}
+                            </Link>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )
+              }
               const isActive = pathname.startsWith(item.href)
               return (
                 <Link
