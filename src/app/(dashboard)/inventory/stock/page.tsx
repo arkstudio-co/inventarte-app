@@ -4,15 +4,12 @@ import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/Button'
-import { Modal } from '@/components/ui/Modal'
-import { Input } from '@/components/ui/Input'
 import { CreateProductModal } from '@/components/inventory/CreateProductModal'
-import { WithdrawalModal } from '@/components/inventory/WithdrawalModal'
+
 import {
   Search,
   Package,
   TrendingUp,
-  TrendingDown,
   AlertTriangle,
   Eye,
   Plus,
@@ -52,15 +49,6 @@ export default function InventoryStockPage() {
   const [sortDir, setSortDir] = useState<SortDir>('asc')
 
   const [showCreateModal, setShowCreateModal] = useState(false)
-  const [showEntryModal, setShowEntryModal] = useState(false)
-  const [withdrawalProduct, setWithdrawalProduct] = useState<string | null>(null)
-
-  const [entryProductId, setEntryProductId] = useState('')
-  const [entryQuantity, setEntryQuantity] = useState<number | ''>(1)
-  const [entryPaymentStatus, setEntryPaymentStatus] = useState<'paid' | 'pending'>('pending')
-  const [entryObservations, setEntryObservations] = useState('')
-  const [isAddingEntry, setIsAddingEntry] = useState(false)
-  const [entryError, setEntryError] = useState('')
 
   const fetchData = async () => {
     setIsLoading(true)
@@ -222,45 +210,6 @@ export default function InventoryStockPage() {
     </button>
   )
 
-  const handleQuickEntry = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setEntryError('')
-    if (entryQuantity === '' || entryQuantity < 1) {
-      setEntryError('La cantidad debe ser mayor a 0')
-      return
-    }
-    setIsAddingEntry(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      setEntryError('Debes iniciar sesión')
-      setIsAddingEntry(false)
-      return
-    }
-    const { error: insertError } = await supabase.from('stock_entries').insert({
-      product_id: entryProductId,
-      quantity: entryQuantity,
-      payment_status: entryPaymentStatus,
-      observations: entryObservations || null,
-      created_by: user.id,
-    })
-    if (insertError) {
-      setEntryError(insertError.message)
-      setIsAddingEntry(false)
-      return
-    }
-    await supabase.rpc('increment_stock', {
-      p_product_id: entryProductId,
-      p_quantity: entryQuantity,
-    })
-    setIsAddingEntry(false)
-    setShowEntryModal(false)
-    setEntryQuantity(1)
-    setEntryPaymentStatus('pending')
-    setEntryObservations('')
-    setEntryProductId('')
-    fetchData()
-  }
-
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -318,12 +267,6 @@ export default function InventoryStockPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="secondary" size="sm" onClick={() => setShowEntryModal(true)}>
-            <Plus size={14} /> Entrada
-          </Button>
-          <Button variant="secondary" size="sm" onClick={() => setWithdrawalProduct('')}>
-            <TrendingDown size={14} /> Salida
-          </Button>
           <Button size="sm" onClick={() => setShowCreateModal(true)}>
             <Package size={14} /> Producto
           </Button>
@@ -609,90 +552,7 @@ export default function InventoryStockPage() {
         onSuccess={() => { setShowCreateModal(false); fetchData() }}
       />
 
-      <Modal
-        isOpen={showEntryModal}
-        onClose={() => {
-          setShowEntryModal(false)
-          setEntryProductId('')
-          setEntryQuantity(1)
-          setEntryPaymentStatus('pending')
-          setEntryObservations('')
-          setEntryError('')
-        }}
-        title="Registrar Entrada de Stock"
-      >
-        <form onSubmit={handleQuickEntry} className="space-y-4">
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--ink-secondary)]">Producto</label>
-            <select
-              value={entryProductId}
-              onChange={(e) => setEntryProductId(e.target.value)}
-              className="w-full px-3 py-2 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors"
-              required
-            >
-              <option value="">Seleccionar producto</option>
-              {products.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} ({p.sku}) &mdash; Stock: {p.stock}
-                </option>
-              ))}
-            </select>
-          </div>
-          <Input
-            label="Cantidad"
-            type="number"
-            min={1}
-            value={entryQuantity}
-            onChange={(e) => setEntryQuantity(e.target.value === '' ? '' : Number(e.target.value))}
-            required
-          />
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--ink-secondary)]">Estado de pago</label>
-            <select
-              value={entryPaymentStatus}
-              onChange={(e) => setEntryPaymentStatus(e.target.value as 'paid' | 'pending')}
-              className="w-full px-3 py-2 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors"
-            >
-              <option value="pending">Pendiente</option>
-              <option value="paid">Pagado</option>
-            </select>
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--ink-secondary)]">Observaciones</label>
-            <textarea
-              className="w-full px-3 py-2 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors resize-none"
-              rows={2}
-              value={entryObservations}
-              onChange={(e) => setEntryObservations(e.target.value)}
-              placeholder="Opcional"
-            />
-          </div>
-          {entryError && (
-            <div className="text-sm text-[var(--danger)] bg-[var(--danger-light)] px-3 py-2 rounded-[var(--radius-sm)] border border-[var(--danger)]/20">
-              {entryError}
-            </div>
-          )}
-          <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="secondary" onClick={() => setShowEntryModal(false)}>
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={isAddingEntry || !entryProductId}>
-              {isAddingEntry ? 'Registrando...' : 'Registrar Entrada'}
-            </Button>
-          </div>
-        </form>
-      </Modal>
 
-      {withdrawalProduct !== null && (
-        <WithdrawalModal
-          productId={withdrawalProduct}
-          onClose={() => setWithdrawalProduct(null)}
-          onSuccess={() => {
-            setWithdrawalProduct(null)
-            fetchData()
-          }}
-        />
-      )}
     </div>
   )
 }
