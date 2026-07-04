@@ -116,7 +116,9 @@ export async function POST(request: Request) {
     .single()
 
   if (fullRemision && person_email && process.env.RESEND_API_KEY) {
-    sendRemisionEmail({ to: person_email, remision: fullRemision }).catch(() => {})
+    sendRemisionEmail({ to: person_email, remision: fullRemision }).catch((err) =>
+      console.error('Error sending remision email:', err)
+    )
   }
 
   return NextResponse.json(fullRemision, { status: 201 })

@@ -175,16 +175,28 @@ function SellerCard({ seller, products, onUpdate }: {
                   ) : (
                     <div className="space-y-1">
                       {remisiones.map((r) => (
-                        <div key={r.id} className="text-xs flex justify-between py-1 border-b border-[var(--border-subtle)] last:border-0">
-                          <span className="text-[var(--ink)]">
-                            {new Date(r.created_at).toLocaleDateString('es-CO')} • {r.remision_number}
-                          </span>
-                          <button
-                            onClick={() => router.push(`/colaboradores/remisiones/${r.id}`)}
-                            className="text-[var(--tint)] hover:underline cursor-pointer"
-                          >
-                            <ExternalLink size={12} />
-                          </button>
+                        <div key={r.id} className="text-xs border-b border-[var(--border-subtle)] last:border-0 py-1 space-y-0.5">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[var(--ink)]">
+                              {new Date(r.created_at).toLocaleDateString('es-CO')} • {r.remision_number}
+                            </span>
+                            <button
+                              onClick={() => router.push(`/colaboradores/remisiones/${r.id}`)}
+                              className="text-[var(--tint)] hover:underline cursor-pointer shrink-0"
+                            >
+                              <ExternalLink size={12} />
+                            </button>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="font-medium">{formatCurrency(r.total_amount)}</span>
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                              r.delivery_type === 'paid'
+                                ? 'bg-green-100 text-green-700'
+                                : 'bg-amber-100 text-amber-700'
+                            }`}>
+                              {r.delivery_type === 'paid' ? 'Pagado' : 'Pendiente'}
+                            </span>
+                          </div>
                         </div>
                       ))}
                     </div>
