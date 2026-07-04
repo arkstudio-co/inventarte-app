@@ -73,6 +73,18 @@ function SellerCard({ seller, products, onUpdate }: {
   const [remisiones, setRemisiones] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
 
+  useEffect(() => {
+    Promise.all([
+      supabase.from('stock_withdrawals').select('pending_amount, delivery_type').eq('seller_id', seller.id).eq('delivery_type', 'pending').gt('pending_amount', 0),
+      supabase.from('payments').select('amount').eq('seller_id', seller.id),
+      supabase.from('returns').select('quantity, products!inner(price)').eq('seller_id', seller.id),
+    ]).then(([wRes, pRes, rRes]) => {
+      if (wRes.data) setWithdrawals(wRes.data)
+      if (pRes.data) setPayments(pRes.data)
+      if (rRes.data) setReturns(rRes.data)
+    })
+  }, [])
+
   const fetchDetails = async () => {
     setLoading(true)
     const [wRes, rRes, pRes, remRes] = await Promise.all([
@@ -289,7 +301,7 @@ function CreateSellerModal({ onCreated }: { onCreated: () => void }) {
 
   return (
     <>
-      <Button onClick={() => setOpen(true)}><Plus size={16} /> Agregar Colaborador</Button>
+      <Button onClick={() => setOpen(true)}><Plus size={16} /> Agregar Vendedor</Button>
       <Modal isOpen={open} onClose={() => setOpen(false)} title="Nuevo Colaborador">
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input label="Nombre" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
