@@ -9,6 +9,16 @@ import { Select } from '@/components/ui/Select'
 import { Modal } from '@/components/ui/Modal'
 import type { Product, Seller } from '@/types/database'
 
+interface LocalFormData {
+  product_id: string
+  quantity: number | ''
+  person_name: string
+  person_email: string
+  delivery_type: 'paid' | 'pending'
+  pending_amount: number | '' | undefined
+  observations: string
+}
+
 interface WithdrawalModalProps {
   productId: string
   onClose: () => void
@@ -24,7 +34,7 @@ export function WithdrawalModal({ productId, onClose, onSuccess }: WithdrawalMod
   const [isLoading, setIsLoading] = useState(false)
   const [selectedProductId, setSelectedProductId] = useState(productId || '')
 
-  const [form, setForm] = useState<WithdrawalFormData>({
+  const [form, setForm] = useState<LocalFormData>({
     product_id: productId || '',
     quantity: 1,
     person_name: '',
@@ -81,14 +91,17 @@ export function WithdrawalModal({ productId, onClose, onSuccess }: WithdrawalMod
       return
     }
 
-    const result = withdrawalSchema.safeParse(form)
-    if (!result.success) {
-      setError(result.error.issues[0].message)
+    const quantity = form.quantity === '' ? 0 : form.quantity
+    const pending_amount = form.pending_amount === '' ? undefined : form.pending_amount
+
+    if (product && quantity > product.stock) {
+      setError(`Solo hay ${product.stock} unidades disponibles`)
       return
     }
 
-    if (product && form.quantity > product.stock) {
-      setError(`Solo hay ${product.stock} unidades disponibles`)
+    const result = withdrawalSchema.safeParse({ ...form, quantity, pending_amount })
+    if (!result.success) {
+      setError(result.error.issues[0].message)
       return
     }
 
@@ -99,11 +112,11 @@ export function WithdrawalModal({ productId, onClose, onSuccess }: WithdrawalMod
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         product_id: form.product_id,
-        quantity: form.quantity,
+        quantity,
         person_name: form.person_name,
         person_email: form.person_email,
         delivery_type: form.delivery_type,
-        pending_amount: form.delivery_type === 'pending' ? form.pending_amount : null,
+        pending_amount: form.delivery_type === 'pending' ? pending_amount : null,
         observations: form.delivery_type === 'pending' ? form.observations : null,
         seller_id: sellerId || null,
       }),
@@ -149,11 +162,11 @@ export function WithdrawalModal({ productId, onClose, onSuccess }: WithdrawalMod
           min={1}
           max={product?.stock || 1}
           value={form.quantity}
-          onChange={(e) => setForm({ ...form, quantity: Number(e.target.value) })}
+          onChange={(e) => setForm({ ...form, quantity: e.target.value === '' ? '' : Number(e.target.value) })}
           required
         />
 
-        {product && form.quantity > product.stock && (
+        {product && form.quantity !== '' && form.quantity > product.stock && (
           <p className="text-xs text-[var(--danger)]">La cantidad supera el stock disponible ({product.stock} uds)</p>
         )}
 
@@ -203,7 +216,7 @@ export function WithdrawalModal({ productId, onClose, onSuccess }: WithdrawalMod
               type="number"
               step="0.01"
               value={form.pending_amount || ''}
-              onChange={(e) => setForm({ ...form, pending_amount: Number(e.target.value) })}
+              onChange={(e) => setForm({ ...form, pending_amount: e.target.value === '' ? '' : Number(e.target.value) })}
             />
             <div className="space-y-1.5">
               <label htmlFor="observations" className="text-sm font-medium text-[var(--ink-secondary)]">Observaciones</label>

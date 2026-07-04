@@ -55,23 +55,26 @@ export default function ResetPasswordPage() {
 
   if (!isValidSession) {
     return (
-      <div className="space-y-6 text-center">
-        <div className="space-y-2">
-          <h1 className="text-xl font-semibold text-[var(--ink)]">Enlace inválido</h1>
-          <p className="text-sm text-[var(--ink-tertiary)]">
-            Este enlace de recuperación ha expirado o no es válido. Solicita uno nuevo.
-          </p>
+      <div className="rounded-[var(--radius-md)] bg-[var(--surface-1)] border border-[var(--border-default)] p-6">
+        <div className="space-y-6 text-center">
+          <div className="space-y-2">
+            <h1 className="text-xl font-semibold text-[var(--ink)]">Enlace inválido</h1>
+            <p className="text-sm text-[var(--ink-tertiary)]">
+              Este enlace de recuperación ha expirado o no es válido. Solicita uno nuevo.
+            </p>
+          </div>
+          <Link href="/forgot-password">
+            <Button variant="secondary">Solicitar nuevo enlace</Button>
+          </Link>
         </div>
-        <Link href="/forgot-password">
-          <Button variant="secondary">Solicitar nuevo enlace</Button>
-        </Link>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      <div className="text-center space-y-2">
+    <div className="rounded-[var(--radius-md)] bg-[var(--surface-1)] border border-[var(--border-default)] p-6">
+      <div className="space-y-6">
+        <div className="text-center space-y-2">
         <h1 className="text-xl font-semibold text-[var(--ink)]">Nueva Contraseña</h1>
         <p className="text-sm text-[var(--ink-tertiary)]">
           Ingresa tu nueva contraseña.
@@ -108,6 +111,7 @@ export default function ResetPasswordPage() {
           {isLoading ? 'Actualizando...' : 'Actualizar contraseña'}
         </Button>
       </form>
+    </div>
     </div>
   )
 }

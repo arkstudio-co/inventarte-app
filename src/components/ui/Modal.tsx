@@ -25,7 +25,7 @@ export function Modal({ isOpen, onClose, title, children, className }: ModalProp
           <div
             className={cn(
               'relative w-full max-w-lg rounded-[var(--radius-lg)]',
-              'bg-[var(--surface-overlay)]',
+              'bg-[var(--surface-1)]',
               'border border-[var(--border-default)]',
               'shadow-lg',
               'p-6',

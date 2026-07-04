@@ -69,7 +69,7 @@ export default function InventoryMovementsPage() {
   const [withdrawalProduct, setWithdrawalProduct] = useState<string | null>(null)
 
   const [entryProductId, setEntryProductId] = useState('')
-  const [entryQuantity, setEntryQuantity] = useState(1)
+  const [entryQuantity, setEntryQuantity] = useState<number | ''>(1)
   const [entryPaymentStatus, setEntryPaymentStatus] = useState<'paid' | 'pending'>('pending')
   const [entryObservations, setEntryObservations] = useState('')
   const [isAddingEntry, setIsAddingEntry] = useState(false)
@@ -254,7 +254,7 @@ export default function InventoryMovementsPage() {
   const handleQuickEntry = async (e: React.FormEvent) => {
     e.preventDefault()
     setEntryError('')
-    if (entryQuantity < 1) {
+    if (entryQuantity === '' || entryQuantity < 1) {
       setEntryError('La cantidad debe ser mayor a 0')
       return
     }
@@ -681,7 +681,7 @@ export default function InventoryMovementsPage() {
             type="number"
             min={1}
             value={entryQuantity}
-            onChange={(e) => setEntryQuantity(Number(e.target.value))}
+            onChange={(e) => setEntryQuantity(e.target.value === '' ? '' : Number(e.target.value))}
             required
           />
 

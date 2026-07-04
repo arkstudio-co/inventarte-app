@@ -372,40 +372,42 @@ export default function LandingPage() {
                   <p className="text-sm text-[var(--success)]/70 mt-1">Te contactaremos pronto.</p>
                 </div>
               ) : (
-                <form onSubmit={handleContact} className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="rounded-[var(--radius-xl)] bg-[var(--surface-1)] border border-[var(--border-default)] p-6">
+                  <form onSubmit={handleContact} className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <Input
+                        placeholder="Nombre"
+                        value={contactForm.name}
+                        onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })}
+                        required
+                      />
+                      <Input
+                        placeholder="Correo electrónico"
+                        type="email"
+                        value={contactForm.email}
+                        onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
+                        required
+                      />
+                    </div>
                     <Input
-                      placeholder="Nombre"
-                      value={contactForm.name}
-                      onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })}
-                      required
+                      placeholder="Teléfono (opcional)"
+                      value={contactForm.phone}
+                      onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })}
                     />
-                    <Input
-                      placeholder="Correo electrónico"
-                      type="email"
-                      value={contactForm.email}
-                      onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <Input
-                    placeholder="Teléfono (opcional)"
-                    value={contactForm.phone}
-                    onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })}
-                  />
-                  <div className="space-y-1.5">
-                    <textarea
-                      className="w-full px-3.5 py-2.5 text-sm rounded-[var(--radius-md)] bg-[var(--surface)] text-[var(--ink)] border border-[var(--border)] placeholder:text-[var(--ink-muted)] hover:border-[var(--border-strong)] focus:outline-none focus:border-[var(--primary)] focus:shadow-[0_0_0_3px_rgba(26,95,122,0.12)] transition-all duration-200 resize-none"
-                      rows={4}
-                      placeholder="Mensaje"
-                      value={contactForm.message}
-                      onChange={(e) => setContactForm({ ...contactForm, message: e.target.value })}
-                      required
-                    />
-                  </div>
-                  {contactError && <p className="text-sm text-[var(--danger)]">{contactError}</p>}
-                  <Button type="submit" size="lg">Enviar Mensaje</Button>
-                </form>
+                    <div className="space-y-1.5">
+                      <textarea
+                        className="w-full px-3.5 py-2.5 text-sm rounded-[var(--radius-md)] bg-[var(--surface)] text-[var(--ink)] border border-[var(--border)] placeholder:text-[var(--ink-muted)] hover:border-[var(--border-strong)] focus:outline-none focus:border-[var(--primary)] focus:shadow-[0_0_0_3px_rgba(26,95,122,0.12)] transition-all duration-200 resize-none"
+                        rows={4}
+                        placeholder="Mensaje"
+                        value={contactForm.message}
+                        onChange={(e) => setContactForm({ ...contactForm, message: e.target.value })}
+                        required
+                      />
+                    </div>
+                    {contactError && <p className="text-sm text-[var(--danger)]">{contactError}</p>}
+                    <Button type="submit" size="lg">Enviar Mensaje</Button>
+                  </form>
+                </div>
               )}
             </div>
 

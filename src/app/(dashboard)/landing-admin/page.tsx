@@ -29,7 +29,7 @@ export default function LandingAdminPage() {
   const [communityCompanies, setCommunityCompanies] = useState<CommunityCompany[]>([])
   const [communityModalOpen, setCommunityModalOpen] = useState(false)
   const [editingCommunity, setEditingCommunity] = useState<CommunityCompany | null>(null)
-  const [communityForm, setCommunityForm] = useState({ name: '', logo_url: '', display_order: 1 })
+  const [communityForm, setCommunityForm] = useState<{ name: string; logo_url: string; display_order: number | '' }>({ name: '', logo_url: '', display_order: 1 })
   const [communityUploading, setCommunityUploading] = useState(false)
 
   useEffect(() => {
@@ -322,7 +322,7 @@ export default function LandingAdminPage() {
                   }
                 }} className="space-y-4">
                   <Input label="Nombre de la empresa" value={communityForm.name} onChange={(e) => setCommunityForm({ ...communityForm, name: e.target.value })} required />
-                  <Input label="Orden" type="number" value={communityForm.display_order} onChange={(e) => setCommunityForm({ ...communityForm, display_order: Number(e.target.value) })} required />
+                  <Input label="Orden" type="number" value={communityForm.display_order} onChange={(e) => setCommunityForm({ ...communityForm, display_order: e.target.value === '' ? '' : Number(e.target.value) })} required />
 
                   <div className="space-y-1.5">
                     <label className="text-sm font-medium text-[var(--ink-secondary)]">Logo</label>

@@ -44,31 +44,34 @@ export default function ForgotPasswordPage() {
 
   if (recoveryLink) {
     return (
-      <div className="space-y-6 text-center">
-        <div className="space-y-2">
-          <h1 className="text-xl font-semibold text-[var(--ink)]">Enlace de recuperación</h1>
-          <p className="text-sm text-[var(--ink-tertiary)]">
-            Haz clic en el enlace para restablecer tu contraseña:
-          </p>
-        </div>
-        <a
-          href={recoveryLink}
-          className="inline-block text-sm text-[var(--accent)] hover:text-[var(--accent-hover)] underline underline-offset-2 break-all"
-        >
-          {recoveryLink}
-        </a>
-        <div className="pt-2">
-          <Link href="/">
-            <Button variant="secondary">Volver al inicio</Button>
-          </Link>
+      <div className="rounded-[var(--radius-md)] bg-[var(--surface-1)] border border-[var(--border-default)] p-6">
+        <div className="space-y-6 text-center">
+          <div className="space-y-2">
+            <h1 className="text-xl font-semibold text-[var(--ink)]">Enlace de recuperación</h1>
+            <p className="text-sm text-[var(--ink-tertiary)]">
+              Haz clic en el enlace para restablecer tu contraseña:
+            </p>
+          </div>
+          <a
+            href={recoveryLink}
+            className="inline-block text-sm text-[var(--accent)] hover:text-[var(--accent-hover)] underline underline-offset-2 break-all"
+          >
+            {recoveryLink}
+          </a>
+          <div className="pt-2">
+            <Link href="/">
+              <Button variant="secondary">Volver al inicio</Button>
+            </Link>
+          </div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      <div className="text-center space-y-2">
+    <div className="rounded-[var(--radius-md)] bg-[var(--surface-1)] border border-[var(--border-default)] p-6">
+      <div className="space-y-6">
+        <div className="text-center space-y-2">
         <h1 className="text-xl font-semibold text-[var(--ink)]">Recuperar Contraseña</h1>
         <p className="text-sm text-[var(--ink-tertiary)]">
           Ingresa tu correo para generar un enlace de recuperación.
@@ -106,5 +109,7 @@ export default function ForgotPasswordPage() {
         </Link>
       </div>
     </div>
+    </div>
   )
 }
+
