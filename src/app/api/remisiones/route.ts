@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createServerSupabase } from '@/lib/supabase/server'
+import { sendRemisionEmail } from '@/lib/email/resend'
 
 export async function GET() {
   const supabase = await createServerSupabase()
@@ -113,6 +114,10 @@ export async function POST(request: Request) {
     .select('*, remision_items(*), sellers(*)')
     .eq('id', remision.id)
     .single()
+
+  if (fullRemision && person_email && process.env.RESEND_API_KEY) {
+    sendRemisionEmail({ to: person_email, remision: fullRemision }).catch(() => {})
+  }
 
   return NextResponse.json(fullRemision, { status: 201 })
 }
