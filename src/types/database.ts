@@ -53,6 +53,26 @@ export interface Product {
   created_at: string
   updated_at: string
   suppliers?: Supplier | null
+  abc_classification: 'A' | 'B' | 'C' | null
+  last_count_date: string | null
+}
+
+export type AdjustmentType = 'positive' | 'negative'
+export type AdjustmentReasonCode = 'count' | 'damage' | 'loss' | 'return' | 'found' | 'correction' | 'other'
+
+export interface StockAdjustment {
+  id: string
+  product_id: string
+  adjustment_type: AdjustmentType
+  quantity: number
+  stock_before: number
+  stock_after: number
+  reason_code: AdjustmentReasonCode
+  reason: string | null
+  reference: string | null
+  created_by: string
+  created_at: string
+  products?: Product | null
 }
 
 export interface StockEntry {
