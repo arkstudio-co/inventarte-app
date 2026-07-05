@@ -53,6 +53,17 @@ export async function POST(request: Request) {
 
   const totalAmount = itemsWithSubtotals.reduce((s: number, i: any) => s + i.subtotal, 0)
 
+  let finalNotes = notes || null
+  if (payment_method) {
+    const parts = [`Pago: ${payment_method === 'cash' ? 'Efectivo' : 'Transferencia'}`]
+    if (payment_method === 'transfer') {
+      if (bank_account) parts.push(`Cuenta: ${bank_account}`)
+      if (card_last_four) parts.push(`Últ. 4 dígitos: ${card_last_four}`)
+    }
+    if (payment_observations) parts.push(`Obs: ${payment_observations}`)
+    finalNotes = finalNotes ? `${finalNotes}\n${parts.join(' | ')}` : parts.join(' | ')
+  }
+
   const { data: remision, error: remError } = await supabase
     .from('remisiones')
     .insert({
@@ -62,7 +73,7 @@ export async function POST(request: Request) {
       person_email: person_email || null,
       delivery_type,
       total_amount: totalAmount,
-      notes: notes || null,
+      notes: finalNotes,
       created_by: user.id,
     })
     .select()
@@ -92,24 +103,7 @@ export async function POST(request: Request) {
     if (stockError) {
       return NextResponse.json({ error: `Error descontando stock de ${item.product_name}: ${stockError.message}` }, { status: 500 })
     }
-  }
-
-  // Create payment record if payment_method is provided
-  if (payment_method && delivery_type === 'paid') {
-    const { error: paymentError } = await supabase.from('payments').insert({
-      seller_id,
-      amount: totalAmount,
-      payment_method,
-      bank_account: payment_method === 'transfer' ? (bank_account || null) : null,
-      card_last_four: payment_method === 'transfer' ? (card_last_four || null) : null,
-      observations: payment_observations || null,
-    })
-    if (paymentError) {
-      console.error('Error creating payment:', paymentError)
-    }
-  }
-
-  const { data: fullRemision } = await supabase
+  }  const { data: fullRemision } = await supabase
     .from('remisiones')
     .select('*, remision_items(*), sellers(*)')
     .eq('id', remision.id)

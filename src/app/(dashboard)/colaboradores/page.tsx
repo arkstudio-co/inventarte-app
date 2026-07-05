@@ -7,12 +7,21 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import { Plus, UserCheck, Package, Undo2, DollarSign, FileText, ExternalLink, Pencil, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
-import type { Seller, StockWithdrawal, Return, Payment, Product, Remision } from '@/types/database'
+import { DateFilter } from '@/components/ui/DateFilter'
+import type { DateFilterState } from '@/components/ui/DateFilter'
+import type { Seller, Return, Payment, Product, Remision } from '@/types/database'
 
 export default function ColaboradoresPage() {
   const supabase = createClient()
   const [sellers, setSellers] = useState<Seller[]>([])
   const [products, setProducts] = useState<Product[]>([])
+  const [filter, setFilter] = useState<DateFilterState>({
+    mode: 'month',
+    month: new Date().getMonth() + 1,
+    year: new Date().getFullYear(),
+    customStart: '',
+    customEnd: '',
+  })
 
   const fetchSellers = async () => {
     const { data } = await supabase.from('sellers').select('*').order('name')
@@ -31,9 +40,12 @@ export default function ColaboradoresPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-xl font-semibold text-[var(--ink)]">Colaboradores</h1>
-        <CreateSellerModal onCreated={fetchSellers} />
+        <div className="flex items-center gap-2">
+          <DateFilter value={filter} onChange={setFilter} />
+          <CreateSellerModal onCreated={fetchSellers} />
+        </div>
       </div>
 
       {sellers.length === 0 ? (
@@ -67,7 +79,6 @@ function SellerCard({ seller, products, onUpdate }: {
   const supabase = createClient()
   const router = useRouter()
   const [expanded, setExpanded] = useState(false)
-  const [withdrawals, setWithdrawals] = useState<any[]>([])
   const [returns, setReturns] = useState<any[]>([])
   const [payments, setPayments] = useState<any[]>([])
   const [remisiones, setRemisiones] = useState<any[]>([])
@@ -75,11 +86,11 @@ function SellerCard({ seller, products, onUpdate }: {
 
   useEffect(() => {
     Promise.all([
-      supabase.from('stock_withdrawals').select('pending_amount, delivery_type').eq('seller_id', seller.id).eq('delivery_type', 'pending').gt('pending_amount', 0),
+      supabase.from('remisiones').select('total_amount, delivery_type').eq('seller_id', seller.id),
       supabase.from('payments').select('amount').eq('seller_id', seller.id),
-      supabase.from('returns').select('quantity, products!inner(price)').eq('seller_id', seller.id),
-    ]).then(([wRes, pRes, rRes]) => {
-      if (wRes.data) setWithdrawals(wRes.data)
+      supabase.from('returns').select('quantity, products(price)').eq('seller_id', seller.id),
+    ]).then(([remRes, pRes, rRes]) => {
+      if (remRes.data) setRemisiones(remRes.data)
       if (pRes.data) setPayments(pRes.data)
       if (rRes.data) setReturns(rRes.data)
     })
@@ -87,13 +98,11 @@ function SellerCard({ seller, products, onUpdate }: {
 
   const fetchDetails = async () => {
     setLoading(true)
-    const [wRes, rRes, pRes, remRes] = await Promise.all([
-      supabase.from('stock_withdrawals').select('*, products(*)').eq('seller_id', seller.id).order('withdrawal_date', { ascending: false }),
+    const [rRes, pRes, remRes] = await Promise.all([
       supabase.from('returns').select('*, products(*)').eq('seller_id', seller.id).order('created_at', { ascending: false }),
       supabase.from('payments').select('*').eq('seller_id', seller.id).order('created_at', { ascending: false }),
-      supabase.from('remisiones').select('*').eq('seller_id', seller.id).order('created_at', { ascending: false }),
+      supabase.from('remisiones').select('*, remision_items(*)').eq('seller_id', seller.id).order('created_at', { ascending: false }),
     ])
-    if (wRes.data) setWithdrawals(wRes.data)
     if (rRes.data) setReturns(rRes.data)
     if (pRes.data) setPayments(pRes.data)
     if (remRes.data) setRemisiones(remRes.data)
@@ -105,9 +114,9 @@ function SellerCard({ seller, products, onUpdate }: {
     setExpanded(!expanded)
   }
 
-  const totalPending = withdrawals
-    .filter((w) => w.delivery_type === 'pending')
-    .reduce((s, w) => s + (w.pending_amount || 0), 0)
+  const totalPending = remisiones
+    .filter((r) => r.delivery_type === 'pending')
+    .reduce((s, r) => s + r.total_amount, 0)
 
   const totalReturnsVal = returns.reduce((s, r) => s + (r.quantity * (r.products?.price || 0)), 0)
   const totalPaid = payments.reduce((s, p) => s + p.amount, 0)
@@ -205,19 +214,21 @@ function SellerCard({ seller, products, onUpdate }: {
 
                 <div>
                   <h4 className="text-xs font-semibold text-[var(--ink-tertiary)] uppercase mb-2 flex items-center gap-1">
-                    <Package size={14} /> Productos tomados ({withdrawals.length})
+                    <Package size={14} /> Productos tomados ({remisiones.flatMap((r) => r.remision_items || []).length})
                   </h4>
-                  {withdrawals.length === 0 ? (
+                  {remisiones.flatMap((r) => r.remision_items || []).length === 0 ? (
                     <p className="text-xs text-[var(--ink-muted)]">Sin registros</p>
                   ) : (
                     <div className="space-y-1">
-                      {withdrawals.map((w) => (
-                        <div key={w.id} className="text-xs flex justify-between py-1 border-b border-[var(--border-subtle)] last:border-0">
+                      {remisiones.flatMap((r) =>
+                        (r.remision_items || []).map((item: any) => ({ ...item, delivery_type: r.delivery_type, date: r.created_at }))
+                      ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((item) => (
+                        <div key={item.id} className="text-xs flex justify-between py-1 border-b border-[var(--border-subtle)] last:border-0">
                           <span className="text-[var(--ink)]">
-                            {new Date(w.withdrawal_date).toLocaleDateString('es-CO')} • {w.products?.name} x{w.quantity}
+                            {new Date(item.date).toLocaleDateString('es-CO')} • {item.product_name} x{item.quantity}
                           </span>
-                          <span className={w.delivery_type === 'pending' ? 'text-[var(--danger)] font-medium' : 'text-[var(--ink-tertiary)]'}>
-                            {w.delivery_type === 'pending' ? formatCurrency(w.pending_amount) : 'Pagado'}
+                          <span className={item.delivery_type === 'pending' ? 'text-[var(--danger)] font-medium' : 'text-[var(--ink-tertiary)]'}>
+                            {item.delivery_type === 'pending' ? formatCurrency(item.subtotal) : 'Pagado'}
                           </span>
                         </div>
                       ))}
