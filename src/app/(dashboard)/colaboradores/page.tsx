@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import { Plus, UserCheck, Package, Undo2, DollarSign, FileText, ExternalLink, Pencil, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
-import { DateFilter } from '@/components/ui/DateFilter'
+import { DateFilter, computeDateRange } from '@/components/ui/DateFilter'
 import type { DateFilterState } from '@/components/ui/DateFilter'
 import type { Seller, Return, Payment, Product, Remision } from '@/types/database'
 
@@ -61,6 +61,7 @@ export default function ColaboradoresPage() {
               seller={seller}
               products={products}
               onUpdate={fetchSellers}
+              filter={filter}
             />
           ))}
         </div>
@@ -71,10 +72,11 @@ export default function ColaboradoresPage() {
 
 /* ========== SELLER CARD ========== */
 
-function SellerCard({ seller, products, onUpdate }: {
+function SellerCard({ seller, products, onUpdate, filter }: {
   seller: Seller
   products: Product[]
   onUpdate: () => void
+  filter: DateFilterState
 }) {
   const supabase = createClient()
   const router = useRouter()
@@ -82,6 +84,9 @@ function SellerCard({ seller, products, onUpdate }: {
   const [returns, setReturns] = useState<any[]>([])
   const [payments, setPayments] = useState<any[]>([])
   const [remisiones, setRemisiones] = useState<any[]>([])
+  const [fullRemisiones, setFullRemisiones] = useState<any[]>([])
+  const [fullReturns, setFullReturns] = useState<any[]>([])
+  const [fullPayments, setFullPayments] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -103,9 +108,9 @@ function SellerCard({ seller, products, onUpdate }: {
       supabase.from('payments').select('*').eq('seller_id', seller.id).order('created_at', { ascending: false }),
       supabase.from('remisiones').select('*, remision_items(*)').eq('seller_id', seller.id).order('created_at', { ascending: false }),
     ])
-    if (rRes.data) setReturns(rRes.data)
-    if (pRes.data) setPayments(pRes.data)
-    if (remRes.data) setRemisiones(remRes.data)
+    if (rRes.data) setFullReturns(rRes.data)
+    if (pRes.data) setFullPayments(pRes.data)
+    if (remRes.data) setFullRemisiones(remRes.data)
     setLoading(false)
   }
 
@@ -123,6 +128,22 @@ function SellerCard({ seller, products, onUpdate }: {
   const balance = totalPending - totalReturnsVal - totalPaid
 
   const formatCurrency = (n: number) => '$' + n.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+
+  const applyFilter = <T extends { created_at: string }>(data: T[]) => {
+    const { startDate, endDate } = computeDateRange(filter)
+    if (!startDate || !endDate) return data
+    const start = new Date(startDate)
+    const end = new Date(endDate)
+    end.setHours(23, 59, 59, 999)
+    return data.filter((item) => {
+      const d = new Date(item.created_at)
+      return d >= start && d <= end
+    })
+  }
+
+  const displayRemisiones = useMemo(() => applyFilter(fullRemisiones), [fullRemisiones, filter])
+  const displayReturns = useMemo(() => applyFilter(fullReturns), [fullReturns, filter])
+  const displayPayments = useMemo(() => applyFilter(fullPayments), [fullPayments, filter])
 
   return (
     <div className="rounded-[var(--radius-md)] bg-[var(--surface-1)] border border-[var(--border-default)] overflow-hidden">
@@ -177,13 +198,13 @@ function SellerCard({ seller, products, onUpdate }: {
               <div className="grid lg:grid-cols-4 gap-4">
                 <div>
                   <h4 className="text-xs font-semibold text-[var(--ink-tertiary)] uppercase mb-2 flex items-center gap-1">
-                    <FileText size={14} /> Remisiones ({remisiones.length})
+                    <FileText size={14} /> Remisiones ({displayRemisiones.length})
                   </h4>
-                  {remisiones.length === 0 ? (
+                  {displayRemisiones.length === 0 ? (
                     <p className="text-xs text-[var(--ink-muted)]">Sin registros</p>
                   ) : (
                     <div className="space-y-1">
-                      {remisiones.map((r) => (
+                      {displayRemisiones.map((r) => (
                         <div key={r.id} className="text-xs border-b border-[var(--border-subtle)] last:border-0 py-1 space-y-0.5">
                           <div className="flex justify-between items-center">
                             <span className="text-[var(--ink)]">
@@ -214,13 +235,13 @@ function SellerCard({ seller, products, onUpdate }: {
 
                 <div>
                   <h4 className="text-xs font-semibold text-[var(--ink-tertiary)] uppercase mb-2 flex items-center gap-1">
-                    <Package size={14} /> Productos tomados ({remisiones.flatMap((r) => r.remision_items || []).length})
+                    <Package size={14} /> Productos tomados ({displayRemisiones.flatMap((r) => r.remision_items || []).length})
                   </h4>
-                  {remisiones.flatMap((r) => r.remision_items || []).length === 0 ? (
+                  {displayRemisiones.flatMap((r) => r.remision_items || []).length === 0 ? (
                     <p className="text-xs text-[var(--ink-muted)]">Sin registros</p>
                   ) : (
                     <div className="space-y-1">
-                      {remisiones.flatMap((r) =>
+                      {displayRemisiones.flatMap((r) =>
                         (r.remision_items || []).map((item: any) => ({ ...item, delivery_type: r.delivery_type, date: r.created_at }))
                       ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((item) => (
                         <div key={item.id} className="text-xs flex justify-between py-1 border-b border-[var(--border-subtle)] last:border-0">
@@ -238,13 +259,13 @@ function SellerCard({ seller, products, onUpdate }: {
 
                 <div>
                   <h4 className="text-xs font-semibold text-[var(--ink-tertiary)] uppercase mb-2 flex items-center gap-1">
-                    <Undo2 size={14} /> Devoluciones ({returns.length})
+                    <Undo2 size={14} /> Devoluciones ({displayReturns.length})
                   </h4>
-                  {returns.length === 0 ? (
+                  {displayReturns.length === 0 ? (
                     <p className="text-xs text-[var(--ink-muted)]">Sin registros</p>
                   ) : (
                     <div className="space-y-1">
-                      {returns.map((r) => (
+                      {displayReturns.map((r) => (
                         <div key={r.id} className="text-xs flex justify-between py-1 border-b border-[var(--border-subtle)] last:border-0">
                           <span className="text-[var(--ink)]">
                             {new Date(r.created_at).toLocaleDateString('es-CO')} • {r.products?.name} x{r.quantity}
@@ -260,13 +281,13 @@ function SellerCard({ seller, products, onUpdate }: {
 
                 <div>
                   <h4 className="text-xs font-semibold text-[var(--ink-tertiary)] uppercase mb-2 flex items-center gap-1">
-                    <DollarSign size={14} /> Pagos ({payments.length})
+                    <DollarSign size={14} /> Pagos ({displayPayments.length})
                   </h4>
-                  {payments.length === 0 ? (
+                  {displayPayments.length === 0 ? (
                     <p className="text-xs text-[var(--ink-muted)]">Sin registros</p>
                   ) : (
                     <div className="space-y-1">
-                      {payments.map((p) => (
+                      {displayPayments.map((p) => (
                         <div key={p.id} className="text-xs flex justify-between py-1 border-b border-[var(--border-subtle)] last:border-0">
                           <span className="text-[var(--ink)]">
                             {new Date(p.created_at).toLocaleDateString('es-CO')}
