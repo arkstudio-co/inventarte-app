@@ -91,7 +91,7 @@ function SellerCard({ seller, products, onUpdate, filter }: {
 
   useEffect(() => {
     Promise.all([
-      supabase.from('remisiones').select('total_amount, delivery_type').eq('seller_id', seller.id),
+      supabase.from('remisiones').select('total_amount, delivery_type, type').eq('seller_id', seller.id),
       supabase.from('payments').select('amount').eq('seller_id', seller.id),
       supabase.from('returns').select('quantity, products(price)').eq('seller_id', seller.id),
     ]).then(([remRes, pRes, rRes]) => {
@@ -204,7 +204,7 @@ function SellerCard({ seller, products, onUpdate, filter }: {
 
   const abonosTableItems = useMemo(() => {
     const fromRemisiones = displayRemisiones
-      .filter((r) => (r.type || '') === 'payment')
+      .filter((r) => !r.remision_items || r.remision_items.length === 0)
       .map((r) => ({
         key: `rem-${r.id}`,
         date: r.created_at,
@@ -649,6 +649,7 @@ function AssignProductModal({ sellerId, products, onAssigned }: { sellerId: stri
 
 function RegisterReturnModal({ sellerId, products, onRegistered }: { sellerId: string; products: Product[]; onRegistered: () => void }) {
   const supabase = createClient()
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState({ product_id: '', quantity: '' as number | '', observations: '' })
   const [saving, setSaving] = useState(false)
@@ -691,10 +692,12 @@ function RegisterReturnModal({ sellerId, products, onRegistered }: { sellerId: s
       return
     }
 
+    const remision = await res.json()
     setSaving(false)
     setOpen(false)
     setForm({ product_id: '', quantity: '', observations: '' })
     onRegistered()
+    router.push(`/colaboradores/remisiones/${remision.id}`)
   }
 
   return (
@@ -740,6 +743,7 @@ function RegisterReturnModal({ sellerId, products, onRegistered }: { sellerId: s
 
 function RegisterPaymentModal({ sellerId, onRegistered }: { sellerId: string; onRegistered: () => void }) {
   const supabase = createClient()
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState({ amount: '' as number | '', observations: '', payment_method: 'cash' as 'cash' | 'transfer', bank_account: '', card_last_four: '' })
   const [saving, setSaving] = useState(false)
@@ -780,10 +784,12 @@ function RegisterPaymentModal({ sellerId, onRegistered }: { sellerId: string; on
       return
     }
 
+    const remision = await res.json()
     setSaving(false)
     setOpen(false)
     setForm({ amount: '', observations: '', payment_method: 'cash', bank_account: '', card_last_four: '' })
     onRegistered()
+    router.push(`/colaboradores/remisiones/${remision.id}`)
   }
 
   return (
