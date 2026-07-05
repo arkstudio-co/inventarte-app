@@ -152,6 +152,7 @@ export interface Remision {
   seller_id: string
   person_name: string
   person_email: string | null
+  type: 'sale' | 'return' | 'payment'
   delivery_type: 'paid' | 'pending'
   total_amount: number
   notes: string | null

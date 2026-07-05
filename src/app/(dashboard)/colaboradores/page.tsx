@@ -119,12 +119,22 @@ function SellerCard({ seller, products, onUpdate, filter }: {
     setExpanded(!expanded)
   }
 
+  const getType = (r: any) => r.type || 'sale'
+
   const totalPending = remisiones
-    .filter((r) => r.delivery_type === 'pending')
+    .filter((r) => getType(r) === 'sale' && r.delivery_type === 'pending')
     .reduce((s, r) => s + r.total_amount, 0)
 
-  const totalReturnsVal = returns.reduce((s, r) => s + (r.quantity * (r.products?.price || 0)), 0)
-  const totalPaid = payments.reduce((s, p) => s + p.amount, 0)
+  const returnsFromRemisiones = remisiones
+    .filter((r) => getType(r) === 'return')
+    .reduce((s, r) => s + Math.abs(r.total_amount), 0)
+
+  const paymentsFromRemisiones = remisiones
+    .filter((r) => getType(r) === 'payment')
+    .reduce((s, r) => s + r.total_amount, 0)
+
+  const totalReturnsVal = returns.reduce((s, r) => s + (r.quantity * (r.products?.price || 0)), 0) + returnsFromRemisiones
+  const totalPaid = payments.reduce((s, p) => s + p.amount, 0) + paymentsFromRemisiones
   const balance = totalPending - totalReturnsVal - totalPaid
 
   const formatCurrency = (n: number) => '$' + n.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
@@ -142,8 +152,83 @@ function SellerCard({ seller, products, onUpdate, filter }: {
   }
 
   const displayRemisiones = useMemo(() => applyFilter(fullRemisiones), [fullRemisiones, filter])
-  const displayReturns = useMemo(() => applyFilter(fullReturns), [fullReturns, filter])
-  const displayPayments = useMemo(() => applyFilter(fullPayments), [fullPayments, filter])
+  const displayReturnsOld = useMemo(() => applyFilter(fullReturns), [fullReturns, filter])
+  const displayPagosOld = useMemo(() => applyFilter(fullPayments), [fullPayments, filter])
+  const displayReturnsFromRem = useMemo(() => displayRemisiones.filter((r) => (r.type || '') === 'return'), [displayRemisiones])
+  const displayPagosFromRem = useMemo(() => displayRemisiones.filter((r) => (r.type || '') === 'payment'), [displayRemisiones])
+  const displayReturns = useMemo(() => [...displayReturnsOld, ...displayReturnsFromRem], [displayReturnsOld, displayReturnsFromRem])
+  const displayPagos = useMemo(() => [...displayPagosOld, ...displayPagosFromRem], [displayPagosOld, displayPagosFromRem])
+
+  const productosTableItems = useMemo(() => {
+    return displayRemisiones
+      .filter((r) => (r.type || '') !== 'payment')
+      .flatMap((r) =>
+        (r.remision_items || [])
+          .filter((item: any) => item.quantity > 0)
+          .map((item: any) => ({
+            key: item.id,
+            date: r.created_at,
+            remision_number: r.remision_number,
+            remision_id: r.id,
+            concept: `${item.product_name} x${item.quantity}`,
+            value: item.subtotal,
+          }))
+      )
+      .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  }, [displayRemisiones])
+
+  const devolucionesTableItems = useMemo(() => {
+    const fromRemisiones = displayRemisiones
+      .filter((r) => (r.type || '') !== 'payment')
+      .flatMap((r) =>
+        (r.remision_items || [])
+          .filter((item: any) => item.quantity < 0)
+          .map((item: any) => ({
+            key: `rem-${item.id}`,
+            date: r.created_at,
+            remision_number: r.remision_number,
+            concept: `${item.product_name} x${Math.abs(item.quantity)}`,
+            value: Math.abs(item.subtotal),
+          }))
+      )
+    const fromOld = displayReturnsOld.map((r: any) => ({
+      key: `old-${r.id}`,
+      date: r.created_at,
+      remision_number: '',
+      concept: `${r.products?.name || 'Producto'} x${r.quantity}`,
+      value: r.quantity * (r.products?.price || 0),
+    }))
+    return [...fromRemisiones, ...fromOld]
+      .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  }, [displayRemisiones, displayReturnsOld])
+
+  const abonosTableItems = useMemo(() => {
+    const fromRemisiones = displayRemisiones
+      .filter((r) => (r.type || '') === 'payment')
+      .map((r) => ({
+        key: `rem-${r.id}`,
+        date: r.created_at,
+        remision_number: r.remision_number,
+        concept: r.notes || 'Pago',
+        value: r.total_amount,
+      }))
+    const fromOld = displayPagosOld.map((p: any) => ({
+      key: `old-${p.id}`,
+      date: p.created_at,
+      remision_number: '',
+      concept: `Pago${p.payment_method === 'transfer' ? ' (Transferencia)' : ' (Efectivo)'}`,
+      value: p.amount,
+    }))
+    return [...fromRemisiones, ...fromOld]
+      .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  }, [displayRemisiones, displayPagosOld])
+
+  const totalTableValue = useMemo(() => {
+    const out = productosTableItems.reduce((s: number, i: any) => s + i.value, 0)
+    const ret = devolucionesTableItems.reduce((s: number, i: any) => s + i.value, 0)
+    const abo = abonosTableItems.reduce((s: number, i: any) => s + i.value, 0)
+    return out - ret - abo
+  }, [productosTableItems, devolucionesTableItems, abonosTableItems])
 
   return (
     <div className="rounded-[var(--radius-md)] bg-[var(--surface-1)] border border-[var(--border-default)] overflow-hidden">
@@ -195,122 +280,82 @@ function SellerCard({ seller, products, onUpdate, filter }: {
                 </button>
               </div>
 
-              <div className="grid lg:grid-cols-4 gap-4">
-                <div>
-                  <h4 className="text-xs font-semibold text-[var(--ink-tertiary)] uppercase mb-2 flex items-center gap-1">
-                    <FileText size={14} /> Remisiones ({displayRemisiones.length})
-                  </h4>
-                  {displayRemisiones.length === 0 ? (
-                    <p className="text-xs text-[var(--ink-muted)]">Sin registros</p>
-                  ) : (
-                    <div className="space-y-1">
-                      {displayRemisiones.map((r) => (
-                        <div key={r.id} className="text-xs border-b border-[var(--border-subtle)] last:border-0 py-1 space-y-0.5">
-                          <div className="flex justify-between items-center">
-                            <span className="text-[var(--ink)]">
-                              {new Date(r.created_at).toLocaleDateString('es-CO')} • {r.remision_number}
-                            </span>
-                            <button
-                              onClick={() => router.push(`/colaboradores/remisiones/${r.id}`)}
-                              className="text-[var(--tint)] hover:underline cursor-pointer shrink-0"
-                            >
-                              <ExternalLink size={12} />
-                            </button>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="font-medium">{formatCurrency(r.total_amount)}</span>
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
-                              r.delivery_type === 'paid'
-                                ? 'bg-green-100 text-green-700'
-                                : 'bg-amber-100 text-amber-700'
-                            }`}>
-                              {r.delivery_type === 'paid' ? 'Pagado' : 'Pendiente'}
-                            </span>
-                          </div>
-                        </div>
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-[var(--border-subtle)]">
+                    <th className="text-left py-1.5 pr-2 text-[var(--ink-tertiary)] font-medium">Remisión</th>
+                    <th className="text-left py-1.5 px-2 text-[var(--ink-tertiary)] font-medium">Producto / Concepto</th>
+                    <th className="text-right py-1.5 pl-2 text-[var(--ink-tertiary)] font-medium">Valor</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {productosTableItems.length > 0 && (
+                    <>
+                      <tr>
+                        <td colSpan={3} className="pt-3 pb-1 text-[10px] font-semibold text-[var(--ink-tertiary)] uppercase">
+                          Productos tomados ({productosTableItems.length})
+                        </td>
+                      </tr>
+                      {productosTableItems.map((item: any) => (
+                        <tr key={item.key} className="border-b border-[var(--border-subtle)]">
+                          <td className="py-1.5 pr-2 text-[var(--ink-secondary)] align-top">
+                            <div>{item.date ? new Date(item.date).toLocaleDateString('es-CO') : ''}</div>
+                            {item.remision_number && <div className="text-[10px] text-[var(--ink-muted)]">{item.remision_number}</div>}
+                          </td>
+                          <td className="py-1.5 px-2 text-[var(--ink)] align-top">{item.concept}</td>
+                          <td className="py-1.5 pl-2 text-right text-[var(--ink)] font-medium align-top whitespace-nowrap">{formatCurrency(item.value)}</td>
+                        </tr>
                       ))}
-                    </div>
+                    </>
                   )}
-                </div>
-
-                <div>
-                  <h4 className="text-xs font-semibold text-[var(--ink-tertiary)] uppercase mb-2 flex items-center gap-1">
-                    <Package size={14} /> Productos tomados ({displayRemisiones.flatMap((r) => r.remision_items || []).length})
-                  </h4>
-                  {displayRemisiones.flatMap((r) => r.remision_items || []).length === 0 ? (
-                    <p className="text-xs text-[var(--ink-muted)]">Sin registros</p>
-                  ) : (
-                    <div className="space-y-1">
-                      {displayRemisiones.flatMap((r) =>
-                        (r.remision_items || []).map((item: any) => ({ ...item, delivery_type: r.delivery_type, date: r.created_at }))
-                      ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((item) => (
-                        <div key={item.id} className="text-xs flex justify-between py-1 border-b border-[var(--border-subtle)] last:border-0">
-                          <span className="text-[var(--ink)]">
-                            {new Date(item.date).toLocaleDateString('es-CO')} • {item.product_name} x{item.quantity}
-                          </span>
-                          <span className={item.delivery_type === 'pending' ? 'text-[var(--danger)] font-medium' : 'text-[var(--ink-tertiary)]'}>
-                            {item.delivery_type === 'pending' ? formatCurrency(item.subtotal) : 'Pagado'}
-                          </span>
-                        </div>
+                  {devolucionesTableItems.length > 0 && (
+                    <>
+                      <tr>
+                        <td colSpan={3} className="pt-3 pb-1 text-[10px] font-semibold text-[var(--ink-tertiary)] uppercase">
+                          Devoluciones ({devolucionesTableItems.length})
+                        </td>
+                      </tr>
+                      {devolucionesTableItems.map((item: any) => (
+                        <tr key={item.key} className="border-b border-[var(--border-subtle)]">
+                          <td className="py-1.5 pr-2 text-[var(--ink-secondary)] align-top">
+                            <div>{item.date ? new Date(item.date).toLocaleDateString('es-CO') : ''}</div>
+                            {item.remision_number && <div className="text-[10px] text-[var(--ink-muted)]">{item.remision_number}</div>}
+                          </td>
+                          <td className="py-1.5 px-2 text-[var(--ink)] align-top">{item.concept}</td>
+                          <td className="py-1.5 pl-2 text-right text-[var(--success)] font-medium align-top whitespace-nowrap">-{formatCurrency(item.value)}</td>
+                        </tr>
                       ))}
-                    </div>
+                    </>
                   )}
-                </div>
-
-                <div>
-                  <h4 className="text-xs font-semibold text-[var(--ink-tertiary)] uppercase mb-2 flex items-center gap-1">
-                    <Undo2 size={14} /> Devoluciones ({displayReturns.length})
-                  </h4>
-                  {displayReturns.length === 0 ? (
-                    <p className="text-xs text-[var(--ink-muted)]">Sin registros</p>
-                  ) : (
-                    <div className="space-y-1">
-                      {displayReturns.map((r) => (
-                        <div key={r.id} className="text-xs flex justify-between py-1 border-b border-[var(--border-subtle)] last:border-0">
-                          <span className="text-[var(--ink)]">
-                            {new Date(r.created_at).toLocaleDateString('es-CO')} • {r.products?.name} x{r.quantity}
-                          </span>
-                          <span className="text-[var(--success)] font-medium">
-                            -{formatCurrency(r.quantity * (r.products?.price || 0))}
-                          </span>
-                        </div>
+                  {abonosTableItems.length > 0 && (
+                    <>
+                      <tr>
+                        <td colSpan={3} className="pt-3 pb-1 text-[10px] font-semibold text-[var(--ink-tertiary)] uppercase">
+                          Abonos ({abonosTableItems.length})
+                        </td>
+                      </tr>
+                      {abonosTableItems.map((item: any) => (
+                        <tr key={item.key} className="border-b border-[var(--border-subtle)]">
+                          <td className="py-1.5 pr-2 text-[var(--ink-secondary)] align-top">
+                            <div>{item.date ? new Date(item.date).toLocaleDateString('es-CO') : ''}</div>
+                            {item.remision_number && <div className="text-[10px] text-[var(--ink-muted)]">{item.remision_number}</div>}
+                          </td>
+                          <td className="py-1.5 px-2 text-[var(--ink)] align-top">{item.concept}</td>
+                          <td className="py-1.5 pl-2 text-right text-[var(--success)] font-medium align-top whitespace-nowrap">-{formatCurrency(item.value)}</td>
+                        </tr>
                       ))}
-                    </div>
+                    </>
                   )}
-                </div>
-
-                <div>
-                  <h4 className="text-xs font-semibold text-[var(--ink-tertiary)] uppercase mb-2 flex items-center gap-1">
-                    <DollarSign size={14} /> Pagos ({displayPayments.length})
-                  </h4>
-                  {displayPayments.length === 0 ? (
-                    <p className="text-xs text-[var(--ink-muted)]">Sin registros</p>
-                  ) : (
-                    <div className="space-y-1">
-                      {displayPayments.map((p) => (
-                        <div key={p.id} className="text-xs flex justify-between py-1 border-b border-[var(--border-subtle)] last:border-0">
-                          <span className="text-[var(--ink)]">
-                            {new Date(p.created_at).toLocaleDateString('es-CO')}
-                            {p.observations && ` • ${p.observations}`}
-                          </span>
-                          <span className="text-[var(--success)] font-medium">-{formatCurrency(p.amount)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="p-3 rounded-[var(--radius-sm)] bg-[var(--surface-0)] border border-[var(--border-subtle)] flex items-center justify-between text-sm">
-                <span className="text-[var(--ink-secondary)]">Balance final</span>
-                <span className={`font-bold ${balance > 0 ? 'text-[var(--danger)]' : balance < 0 ? 'text-[var(--success)]' : 'text-[var(--ink-tertiary)]'}`}>
-                  {balance > 0 ? `Debe ${formatCurrency(balance)}` : balance < 0 ? `A favor ${formatCurrency(Math.abs(balance))}` : 'Al día'}
-                </span>
-              </div>
-
-              <div className="text-xs text-[var(--ink-muted)]">
-                Pendiente: {formatCurrency(totalPending)} — Dev: {formatCurrency(totalReturnsVal)} — Pagos: {formatCurrency(totalPaid)}
-              </div>
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-[var(--border-default)]">
+                    <td colSpan={2} className="pt-2 pb-1 text-sm font-semibold text-[var(--ink)]">Total</td>
+                    <td className={`pt-2 pb-1 text-sm font-bold text-right whitespace-nowrap ${totalTableValue > 0 ? 'text-[var(--danger)]' : totalTableValue < 0 ? 'text-[var(--success)]' : 'text-[var(--ink-tertiary)]'}`}>
+                      {totalTableValue > 0 ? `Debe ${formatCurrency(totalTableValue)}` : totalTableValue < 0 ? `A favor ${formatCurrency(Math.abs(totalTableValue))}` : 'Al día'}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
             </>
           )}
         </div>
@@ -607,18 +652,45 @@ function RegisterReturnModal({ sellerId, products, onRegistered }: { sellerId: s
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState({ product_id: '', quantity: '' as number | '', observations: '' })
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  const selectedProduct = products.find((p) => p.id === form.product_id)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const qty = form.quantity === '' ? 0 : form.quantity
     if (!form.product_id || qty < 1) return
     setSaving(true)
-    await supabase.from('returns').insert({
-      seller_id: sellerId,
-      product_id: form.product_id,
-      quantity: qty,
-      observations: form.observations || null,
+    setError('')
+
+    const seller = await supabase.from('sellers').select('name, email').eq('id', sellerId).single()
+
+    const res = await fetch('/api/remisiones', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        seller_id: sellerId,
+        person_name: seller.data?.name || '',
+        person_email: seller.data?.email || '',
+        type: 'return',
+        delivery_type: 'paid',
+        notes: form.observations || null,
+        items: [{
+          product_id: form.product_id,
+          product_name: selectedProduct?.name || '',
+          quantity: qty,
+          unit_price: selectedProduct?.price || 0,
+        }],
+      }),
     })
+
+    if (!res.ok) {
+      const data = await res.json()
+      setError(data.error || 'Error al registrar devolución')
+      setSaving(false)
+      return
+    }
+
     setSaving(false)
     setOpen(false)
     setForm({ product_id: '', quantity: '', observations: '' })
@@ -671,6 +743,7 @@ function RegisterPaymentModal({ sellerId, onRegistered }: { sellerId: string; on
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState({ amount: '' as number | '', observations: '', payment_method: 'cash' as 'cash' | 'transfer', bank_account: '', card_last_four: '' })
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -678,14 +751,35 @@ function RegisterPaymentModal({ sellerId, onRegistered }: { sellerId: string; on
     if (amt <= 0) return
     if (form.payment_method === 'transfer' && (!form.bank_account.trim() || form.card_last_four.length !== 4)) return
     setSaving(true)
-    await supabase.from('payments').insert({
-      seller_id: sellerId,
-      amount: amt,
-      payment_method: form.payment_method,
-      bank_account: form.payment_method === 'transfer' ? form.bank_account.trim() : null,
-      card_last_four: form.payment_method === 'transfer' ? form.card_last_four : null,
-      observations: form.observations || null,
+    setError('')
+
+    const seller = await supabase.from('sellers').select('name, email').eq('id', sellerId).single()
+
+    const res = await fetch('/api/remisiones', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        seller_id: sellerId,
+        person_name: seller.data?.name || '',
+        person_email: seller.data?.email || '',
+        type: 'payment',
+        delivery_type: 'paid',
+        total_amount: amt,
+        notes: form.observations || null,
+        payment_method: form.payment_method,
+        bank_account: form.bank_account || null,
+        card_last_four: form.card_last_four || null,
+        payment_observations: form.observations || null,
+      }),
     })
+
+    if (!res.ok) {
+      const data = await res.json()
+      setError(data.error || 'Error al registrar pago')
+      setSaving(false)
+      return
+    }
+
     setSaving(false)
     setOpen(false)
     setForm({ amount: '', observations: '', payment_method: 'cash', bank_account: '', card_last_four: '' })
