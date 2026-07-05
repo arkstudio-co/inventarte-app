@@ -17,12 +17,29 @@ import {
   Users,
   ChevronRight,
   ChevronDown,
+  TrendingUp,
+  FileText,
+  LayoutDashboard,
+  Package,
 } from 'lucide-react'
 
-const walletSubItems = [
+interface SubNavItem {
+  href: string
+  label: string
+  icon?: React.ComponentType<{ size?: number }>
+}
+
+const walletSubItems: SubNavItem[] = [
   { href: '/wallet/ingresos', label: 'Ingresos' },
   { href: '/wallet/cuentas-por-cobrar', label: 'Cuentas por Cobrar' },
   { href: '/wallet/gastos', label: 'Gastos' },
+]
+
+const inventorySubItems: SubNavItem[] = [
+  { href: '/inventory', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/inventory/movements', label: 'Movimientos', icon: TrendingUp },
+  { href: '/inventory/purchase-orders', label: 'Órdenes de Compra', icon: Package },
+  { href: '/inventory/reports', label: 'Reportes', icon: FileText },
 ]
 
 const navItems = [
@@ -33,8 +50,14 @@ const navItems = [
     href: '/wallet',
     children: walletSubItems,
   },
-  { type: 'link' as const, href: '/inventory/stock', label: 'Productos', icon: Box },
-  { type: 'link' as const, href: '/inventory', label: 'Inventario', icon: ArrowUpDown },
+  { type: 'link' as const, href: '/products', label: 'Productos', icon: Box },
+  {
+    type: 'group' as const,
+    label: 'Inventario',
+    icon: ArrowUpDown,
+    href: '/inventory',
+    children: inventorySubItems,
+  },
   { type: 'link' as const, href: '/settings', label: 'Concepto de Gastos', icon: Receipt },
   { type: 'link' as const, href: '/users', label: 'Usuarios', icon: Users },
   { type: 'link' as const, href: '/colaboradores', label: 'Vendedores', icon: UserCheck },
@@ -49,7 +72,14 @@ interface SidebarProps {
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname()
   const { signOut, user, profile } = useAuth()
-  const [walletOpen, setWalletOpen] = useState(true)
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
+    Wallet: true,
+    Inventario: true,
+  })
+
+  const toggleGroup = (label: string) => {
+    setOpenGroups((prev) => ({ ...prev, [label]: !prev[label] }))
+  }
 
   const handleSignOut = async () => {
     await signOut()
@@ -87,6 +117,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             {navItems.map((item) => {
               if (item.type === 'group') {
                 const isGroupActive = pathname === item.href || pathname.startsWith(item.href + '/')
+                const isOpen = openGroups[item.label] ?? true
                 return (
                   <div key={item.label}>
                     <Link
@@ -94,7 +125,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                       onClick={(e) => {
                         if (pathname.startsWith(item.href)) {
                           e.preventDefault()
-                          setWalletOpen(!walletOpen)
+                          toggleGroup(item.label)
                         } else {
                           onClose()
                         }
@@ -109,11 +140,11 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                     >
                       <item.icon size={18} />
                       <span className="flex-1 text-left">{item.label}</span>
-                      {walletOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                      {isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                     </Link>
-                    {walletOpen && (
+                    {isOpen && (
                       <div className="ml-3 mt-0.5 space-y-0.5 border-l border-[var(--border-subtle)] pl-2">
-                        {walletSubItems.map((sub) => {
+                        {item.children.map((sub) => {
                           const isSubActive = pathname === sub.href
                           return (
                             <Link
@@ -121,13 +152,14 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                               href={sub.href}
                               onClick={onClose}
                               className={cn(
-                                'block px-3 py-1.5 text-sm rounded-[var(--radius-sm)] transition-colors',
+                                'flex items-center gap-2 px-3 py-1.5 text-sm rounded-[var(--radius-sm)] transition-colors',
                                 'border border-transparent',
                                 isSubActive
                                   ? 'bg-[var(--tint-light)] text-[var(--ink)] font-medium border-[var(--tint)]/30'
                                   : 'text-[var(--ink-tertiary)] hover:bg-[var(--surface-1)] hover:text-[var(--ink-secondary)]'
                               )}
                             >
+                              {sub.icon && <sub.icon size={14} />}
                               {sub.label}
                             </Link>
                           )
@@ -137,7 +169,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                   </div>
                 )
               }
-              const isActive = pathname.startsWith(item.href)
+              const isActive = pathname === item.href
               return (
                 <Link
                   key={item.href}

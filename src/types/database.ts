@@ -208,6 +208,34 @@ export interface OtherIncome {
   created_at: string
 }
 
+export type PurchaseOrderStatus = 'draft' | 'sent' | 'partial' | 'received' | 'cancelled'
+
+export interface PurchaseOrder {
+  id: string
+  order_number: string
+  supplier_id: string | null
+  status: PurchaseOrderStatus
+  total_cost: number
+  notes: string | null
+  created_by: string
+  created_at: string
+  updated_at: string
+  suppliers?: Supplier | null
+  items?: PurchaseOrderItem[]
+}
+
+export interface PurchaseOrderItem {
+  id: string
+  order_id: string
+  product_id: string | null
+  product_name: string
+  quantity: number
+  unit_cost: number
+  subtotal: number
+  received_quantity: number
+  products?: Product | null
+}
+
 export interface CompanyInfo {
   id: string
   hero_title: string
