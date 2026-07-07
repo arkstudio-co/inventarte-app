@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createServerSupabase } from '@/lib/supabase/server'
+import { getServerCompanyId } from '@/lib/supabase/company'
 
 export async function GET() {
   const supabase = await createServerSupabase()
@@ -19,9 +20,12 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  const companyId = await getServerCompanyId()
+
   const { data, error } = await supabase.from('products').insert({
     ...body,
     created_by: user.id,
+    company_id: companyId,
   }).select()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

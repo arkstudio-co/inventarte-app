@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
+import { useCompany } from '@/providers/CompanyProvider'
 
 interface EntryStockModalProps {
   isOpen: boolean
@@ -15,6 +16,7 @@ interface EntryStockModalProps {
 
 export function EntryStockModal({ isOpen, onClose, onSuccess, products }: EntryStockModalProps) {
   const supabase = createClient()
+  const { companyId } = useCompany()
   const [productId, setProductId] = useState('')
   const [quantity, setQuantity] = useState<number | ''>(1)
   const [paymentStatus, setPaymentStatus] = useState<'paid' | 'pending'>('pending')
@@ -34,7 +36,7 @@ export function EntryStockModal({ isOpen, onClose, onSuccess, products }: EntryS
     if (!user) { setError('Debes iniciar sesión'); setIsAdding(false); return }
 
     const { error: insertError } = await supabase.from('stock_entries').insert({
-      product_id: productId, quantity,
+      product_id: productId, quantity, company_id: companyId,
       payment_status: paymentStatus, observations: observations || null, created_by: user.id,
     })
     if (insertError) { setError(insertError.message); setIsAdding(false); return }

@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { computeDateRange } from '@/components/ui/DateFilter'
 import type { DateFilterState } from '@/components/ui/DateFilter'
 import type { Supplier, AccountPayable, AdministrativeExpense, OtherIncome } from '@/types/database'
+import { useCompany } from '@/providers/CompanyProvider'
 
 interface WalletContextType {
   income: any[]
@@ -63,6 +64,7 @@ export function useWallet() {
 
 export function WalletProvider({ children }: { children: ReactNode }) {
   const supabase = createClient()
+  const { companyId } = useCompany()
 
   const [income, setIncome] = useState<any[]>([])
   const [expenses, setExpenses] = useState<any[]>([])
@@ -162,7 +164,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   const handleCreateAp = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!companyId) return
     const payload: any = {
+      company_id: companyId,
       amount: apForm.amount === '' ? 0 : apForm.amount,
       description: apForm.description || null,
       due_date: apForm.due_date || null,
@@ -188,7 +192,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [adminShowAll, setAdminShowAll] = useState(false)
   const handleCreateAdmin = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!companyId) return
     const payload = {
+      company_id: companyId,
       description: adminForm.description,
       amount: adminForm.amount === '' ? 0 : adminForm.amount,
       category: adminForm.category || null,
@@ -204,9 +210,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   const handleCreateOtherIncome = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!companyId) return
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
     await supabase.from('other_income').insert({
+      company_id: companyId,
       description: otherIncomeForm.description,
       amount: otherIncomeForm.amount === '' ? 0 : otherIncomeForm.amount,
       category: otherIncomeForm.category || 'other',

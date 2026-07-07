@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
+import { useCompany } from '@/providers/CompanyProvider'
 import { Plus, UserCheck, Package, Undo2, DollarSign, FileText, ExternalLink, Pencil, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
 import { DateFilter, computeDateRange } from '@/components/ui/DateFilter'
 import type { DateFilterState } from '@/components/ui/DateFilter'
@@ -368,15 +369,17 @@ function SellerCard({ seller, products, onUpdate, filter }: {
 
 function CreateSellerModal({ onCreated }: { onCreated: () => void }) {
   const supabase = createClient()
+  const { companyId } = useCompany()
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState({ name: '', email: '', phone: '', notes: '' })
   const [saving, setSaving] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.name.trim()) return
+    if (!form.name.trim() || !companyId) return
     setSaving(true)
     await supabase.from('sellers').insert({
+      company_id: companyId,
       name: form.name,
       email: form.email || null,
       phone: form.phone || null,

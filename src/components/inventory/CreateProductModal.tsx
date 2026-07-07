@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Modal } from '@/components/ui/Modal'
 import { ImageUpload } from '@/components/ui/ImageUpload'
+import { useCompany } from '@/providers/CompanyProvider'
 
 interface CreateProductModalProps {
   isOpen: boolean
@@ -18,6 +19,7 @@ interface CreateProductModalProps {
 
 export function CreateProductModal({ isOpen, onClose, onSuccess }: CreateProductModalProps) {
   const supabase = createClient()
+  const { companyId } = useCompany()
   const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([])
   const [sku] = useState(generateSKU())
   const [isLoading, setIsLoading] = useState(false)
@@ -86,6 +88,7 @@ export function CreateProductModal({ isOpen, onClose, onSuccess }: CreateProduct
       supplier_id: form.supplier_id || null,
       image_url: form.image_url || null,
       created_by: user.id,
+      company_id: companyId,
     })
 
     if (insertError) {

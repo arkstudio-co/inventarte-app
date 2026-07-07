@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createServerSupabase } from '@/lib/supabase/server'
+import { getServerCompanyId } from '@/lib/supabase/company'
 
 export async function GET() {
   const supabase = await createServerSupabase()
@@ -19,9 +20,11 @@ export async function POST(request: Request) {
   const body = await request.json()
   const { title, description, precio, image_url, display_order } = body
 
+  const companyId = await getServerCompanyId()
+
   const { data, error } = await supabase
     .from('landing_products')
-    .insert({ title, description, precio, image_url, display_order, is_active: true })
+    .insert({ title, description, precio, image_url, display_order, is_active: true, company_id: companyId })
     .select()
     .single()
 

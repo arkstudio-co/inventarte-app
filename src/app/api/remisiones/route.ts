@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServerSupabase } from '@/lib/supabase/server'
 import { sendRemisionEmail } from '@/lib/email/resend'
+import { getServerCompanyId } from '@/lib/supabase/company'
 
 export async function GET() {
   const supabase = await createServerSupabase()
@@ -75,6 +76,8 @@ export async function POST(request: Request) {
     finalNotes = finalNotes ? `${finalNotes}\n${parts.join(' | ')}` : parts.join(' | ')
   }
 
+  const companyId = await getServerCompanyId()
+
   const { data: remision, error: remError } = await supabase
     .from('remisiones')
     .insert({
@@ -86,6 +89,7 @@ export async function POST(request: Request) {
       delivery_type: delivery_type || 'paid',
       total_amount: totalAmount,
       notes: finalNotes,
+      company_id: companyId,
       created_by: user.id,
     })
     .select()
@@ -101,6 +105,7 @@ export async function POST(request: Request) {
         itemsWithSubtotals.map((item: any) => ({
           ...item,
           remision_id: remision.id,
+          company_id: companyId,
         }))
       )
 

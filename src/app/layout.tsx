@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Instrument_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import { AuthProvider } from "@/providers/AuthProvider";
+import { AppProviders } from "@/providers/AppProviders";
 
 const instrumentSans = Instrument_Sans({
   variable: "--font-sans",
@@ -26,9 +26,9 @@ export default function RootLayout({
   return (
     <html lang="es" className={`${instrumentSans.variable} ${jetbrainsMono.variable} h-full antialiased`}>
       <body className="min-h-full bg-[var(--surface-muted)] text-[var(--ink)] font-sans">
-        <AuthProvider>
+        <AppProviders>
           {children}
-        </AuthProvider>
+        </AppProviders>
       </body>
     </html>
   );

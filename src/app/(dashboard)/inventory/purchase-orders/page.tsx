@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/Button'
+import { useCompany } from '@/providers/CompanyProvider'
 import { PurchaseOrderModal } from '@/components/inventory/PurchaseOrderModal'
 import { WithdrawalModal } from '@/components/inventory/WithdrawalModal'
 
@@ -36,6 +37,7 @@ const statusConfig: Record<string, { label: string; color: string; bg: string }>
 export default function PurchaseOrdersPage() {
   const router = useRouter()
   const supabase = createClient()
+  const { companyId } = useCompany()
 
   const [orders, setOrders] = useState<(PurchaseOrder & { suppliers?: Supplier | null })[]>([])
   const [products, setProducts] = useState<{ id: string; name: string; sku: string; stock: number; min_stock: number; cost: number }[]>([])
@@ -101,7 +103,7 @@ export default function PurchaseOrdersPage() {
       if (pending <= 0) continue
 
       const { error: entryErr } = await supabase.from('stock_entries').insert({
-        product_id: item.product_id, quantity: pending,
+        product_id: item.product_id, quantity: pending, company_id: companyId,
         payment_status: 'pending', observations: `OC ${order.order_number}: ${item.product_name}`,
         created_by: user.id,
       })
@@ -128,7 +130,7 @@ export default function PurchaseOrdersPage() {
     const orderNum = orderNumber || `PO-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-0001`
 
     const { data: newOrder, error: orderErr } = await supabase.from('purchase_orders').insert({
-      order_number: orderNum, supplier_id: null, notes: 'Auto-generada por stock bajo',
+      order_number: orderNum, supplier_id: null, notes: 'Auto-generada por stock bajo', company_id: companyId,
       created_by: user.id,
     }).select().single()
     if (orderErr) { setError(orderErr.message); return }

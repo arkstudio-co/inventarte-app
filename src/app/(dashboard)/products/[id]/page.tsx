@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
 import { ImageUpload } from '@/components/ui/ImageUpload'
 import { ArrowLeft, Package, Edit2, Plus } from 'lucide-react'
+import { useCompany } from '@/providers/CompanyProvider'
 import type { Product, Supplier } from '@/types/database'
 
 export default function ProductDetailPage() {
@@ -18,6 +19,7 @@ export default function ProductDetailPage() {
   const params = useParams()
   const searchParams = useSearchParams()
   const supabase = createClient()
+  const { companyId } = useCompany()
   const isEditing = searchParams.get('edit') === 'true'
 
   const [product, setProduct] = useState<Product | null>(null)
@@ -44,6 +46,7 @@ export default function ProductDetailPage() {
       quantity: qty,
       payment_status: 'pending',
       observations: 'Añadido desde edición',
+      company_id: companyId,
       created_by: user.id,
     })
     await supabase.rpc('increment_stock', {
@@ -350,6 +353,7 @@ export default function ProductDetailPage() {
             quantity: qty,
             payment_status: entryPaymentStatus,
             observations: entryObservations || null,
+            company_id: companyId,
             created_by: user.id,
           })
           await supabase.rpc('increment_stock', {

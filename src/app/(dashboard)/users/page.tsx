@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Modal } from '@/components/ui/Modal'
 import { Badge } from '@/components/ui/Badge'
+import { useCompany } from '@/providers/CompanyProvider'
 import { UserPlus, Pencil, Trash2, Users } from 'lucide-react'
 import type { Profile, Permission } from '@/types/database'
 
@@ -24,6 +25,7 @@ const PERMISSION_LIST = [
 
 export default function UsersPage() {
   const supabase = createClient()
+  const { companyId } = useCompany()
   const [users, setUsers] = useState<Profile[]>([])
   const [showModal, setShowModal] = useState(false)
   const [editingUser, setEditingUser] = useState<Profile | null>(null)
@@ -105,6 +107,7 @@ export default function UsersPage() {
           full_name: form.full_name,
           email: form.email,
           role: form.role,
+          company_id: companyId,
         })
       }
     }

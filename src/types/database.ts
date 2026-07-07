@@ -1,14 +1,26 @@
 export type UserRole = 'admin' | 'operative'
 
+export interface Company {
+  id: string
+  name: string
+  slug: string
+  logo_url: string | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
 export interface Profile {
   id: string
   full_name: string
   email: string
   phone: string | null
   role: UserRole
+  company_id: string
   avatar_url: string | null
   created_at: string
   updated_at: string
+  companies?: Company | null
 }
 
 export interface Permission {
@@ -32,6 +44,7 @@ export interface Supplier {
   contact: string | null
   email: string | null
   phone: string | null
+  company_id: string
   created_at: string
   updated_at: string
 }
@@ -50,6 +63,7 @@ export interface Product {
   supplier_id: string | null
   is_active: boolean
   created_by: string
+  company_id: string
   created_at: string
   updated_at: string
   suppliers?: Supplier | null
@@ -71,6 +85,7 @@ export interface StockAdjustment {
   reason: string | null
   reference: string | null
   created_by: string
+  company_id: string
   created_at: string
   products?: Product | null
 }
@@ -82,6 +97,7 @@ export interface StockEntry {
   payment_status: 'paid' | 'pending'
   observations: string | null
   created_by: string
+  company_id: string
   created_at: string
 }
 
@@ -92,6 +108,7 @@ export interface Seller {
   phone: string | null
   notes: string | null
   is_active: boolean
+  company_id: string
   created_at: string
   updated_at: string
 }
@@ -102,6 +119,7 @@ export interface Return {
   product_id: string
   quantity: number
   observations: string | null
+  company_id: string
   created_at: string
   products?: Product | null
 }
@@ -114,6 +132,7 @@ export interface Payment {
   bank_account: string | null
   card_last_four: string | null
   observations: string | null
+  company_id: string
   created_at: string
 }
 
@@ -128,6 +147,7 @@ export interface StockWithdrawal {
   observations: string | null
   withdrawal_date: string
   created_by: string
+  company_id: string
   created_at: string
   seller_id: string | null
   products?: Product | null
@@ -142,6 +162,7 @@ export interface LandingProduct {
   image_url: string | null
   display_order: number
   is_active: boolean
+  company_id: string
   created_at: string
   products?: Product | null
 }
@@ -153,6 +174,7 @@ export interface ContactMessage {
   phone: string | null
   message: string
   is_read: boolean
+  company_id: string
   created_at: string
 }
 
@@ -162,6 +184,7 @@ export interface CommunityCompany {
   logo_url: string | null
   display_order: number
   is_active: boolean
+  company_id: string
   created_at: string
   updated_at: string
 }
@@ -177,6 +200,7 @@ export interface Remision {
   total_amount: number
   notes: string | null
   created_by: string
+  company_id: string
   created_at: string
   sellers?: Seller | null
   remision_items?: RemisionItem[]
@@ -200,6 +224,7 @@ export interface AccountPayable {
   description: string | null
   due_date: string | null
   is_paid: boolean
+  company_id: string
   created_at: string
   updated_at: string
   suppliers?: Supplier | null
@@ -213,6 +238,7 @@ export interface AdministrativeExpense {
   type: 'fixed' | 'variable'
   expense_date: string
   notes: string | null
+  company_id: string
   created_at: string
   updated_at: string
 }
@@ -225,6 +251,7 @@ export interface OtherIncome {
   income_date: string
   notes: string | null
   created_by: string
+  company_id: string
   created_at: string
 }
 
@@ -238,6 +265,7 @@ export interface PurchaseOrder {
   total_cost: number
   notes: string | null
   created_by: string
+  company_id: string
   created_at: string
   updated_at: string
   suppliers?: Supplier | null
@@ -271,6 +299,7 @@ export interface CompanyInfo {
   experience_title: string | null
   experience_description: string | null
   founded_year: number | null
+  company_id: string
   created_at: string
   updated_at: string
 }

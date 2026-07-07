@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import { DateFilter, computeDateRange } from '@/components/ui/DateFilter'
 import type { DateFilterState } from '@/components/ui/DateFilter'
+import { useCompany } from '@/providers/CompanyProvider'
 import {
   Plus,
   TrendingUp,
@@ -22,6 +23,7 @@ type ActiveTab = 'fixed' | 'variable' | 'suppliers'
 
 export default function ConceptoGastosPage() {
   const supabase = createClient()
+  const { companyId } = useCompany()
 
   const [expenses, setExpenses] = useState<AdministrativeExpense[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
@@ -124,6 +126,7 @@ export default function ConceptoGastosPage() {
       type: expenseForm.type,
       expense_date: expenseForm.expense_date,
       notes: expenseForm.notes || null,
+      company_id: companyId,
     }
 
     if (editingExpense) {
@@ -169,10 +172,11 @@ export default function ConceptoGastosPage() {
 
   const handleSupplierSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!companyId) return
     if (editingSupplier) {
       await supabase.from('suppliers').update(supplierForm).eq('id', editingSupplier.id)
     } else {
-      await supabase.from('suppliers').insert(supplierForm)
+      await supabase.from('suppliers').insert({ ...supplierForm, company_id: companyId })
     }
     setShowSupplierModal(false)
     setEditingSupplier(null)

@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
+import { useCompany } from '@/providers/CompanyProvider'
 import { Plus, Trash2, Package } from 'lucide-react'
 import type { PurchaseOrder, Supplier, Product } from '@/types/database'
 
@@ -24,6 +25,7 @@ interface OrderItemInput {
 
 export function PurchaseOrderModal({ isOpen, onClose, onSuccess, order }: PurchaseOrderModalProps) {
   const supabase = createClient()
+  const { companyId } = useCompany()
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -131,7 +133,7 @@ export function PurchaseOrderModal({ isOpen, onClose, onSuccess, order }: Purcha
       const orderNum = orderNumber || `PO-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-0001`
 
       const { data: newOrder, error: orderErr } = await supabase.from('purchase_orders').insert({
-        order_number: orderNum, supplier_id: supplierId, notes: notes || null, created_by: user.id,
+        order_number: orderNum, supplier_id: supplierId, notes: notes || null, company_id: companyId, created_by: user.id,
       }).select().single()
       if (orderErr) { setError(orderErr.message); setIsSubmitting(false); return }
 

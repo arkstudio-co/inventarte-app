@@ -6,11 +6,13 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
+import { useCompany } from '@/providers/CompanyProvider'
 import { Palette, Package, Eye, EyeOff, Trash2, Plus, Pencil } from 'lucide-react'
 import type { Product, LandingProduct, ContactMessage, CommunityCompany } from '@/types/database'
 
 export default function LandingAdminPage() {
   const supabase = createClient()
+  const { companyId } = useCompany()
   const [tab, setTab] = useState<'products' | 'info' | 'messages' | 'community'>('products')
   const [communityTab, setCommunityTab] = useState<'text' | 'companies'>('text')
   const [products, setProducts] = useState<Product[]>([])
@@ -74,7 +76,9 @@ export default function LandingAdminPage() {
   }
 
   const addToLanding = async (productId: string) => {
+    if (!companyId) return
     await supabase.from('landing_products').insert({
+      company_id: companyId,
       product_id: productId,
       display_order: landingProducts.length + 1,
       is_active: true,
@@ -94,10 +98,11 @@ export default function LandingAdminPage() {
 
   const saveCompanyInfo = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!companyId) return
     if (companyInfo) {
       await supabase.from('company_info').update(infoForm).eq('id', companyInfo.id)
     } else {
-      await supabase.from('company_info').insert(infoForm)
+      await supabase.from('company_info').insert({ ...infoForm, company_id: companyId })
     }
   }
 
@@ -309,10 +314,11 @@ export default function LandingAdminPage() {
               <Modal isOpen={communityModalOpen} onClose={() => setCommunityModalOpen(false)} title={editingCommunity ? 'Editar Empresa' : 'Agregar Empresa'}>
                 <form onSubmit={async (e) => {
                   e.preventDefault()
+                  if (!companyId) return
                   try {
                     const { error } = editingCommunity
                       ? await supabase.from('community_companies').update(communityForm).eq('id', editingCommunity.id)
-                      : await supabase.from('community_companies').insert({ ...communityForm, is_active: true })
+                      : await supabase.from('community_companies').insert({ ...communityForm, company_id: companyId, is_active: true })
 
                     if (error) throw error
                     setCommunityModalOpen(false)

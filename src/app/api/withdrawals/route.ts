@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServerSupabase } from '@/lib/supabase/server'
 import { sendWithdrawalEmail } from '@/lib/email/resend'
+import { getServerCompanyId } from '@/lib/supabase/company'
 
 export async function POST(request: Request) {
   const supabase = await createServerSupabase()
@@ -8,6 +9,8 @@ export async function POST(request: Request) {
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const companyId = await getServerCompanyId()
 
   const { data: withdrawal, error } = await supabase.from('stock_withdrawals').insert({
     product_id: body.product_id,
@@ -19,6 +22,7 @@ export async function POST(request: Request) {
     observations: body.delivery_type === 'pending' ? body.observations : null,
     seller_id: body.seller_id || null,
     withdrawal_date: new Date().toISOString(),
+    company_id: companyId,
     created_by: user.id,
   }).select()
 
