@@ -176,41 +176,121 @@ export default function InventoryReportsPage() {
     setGeneratingPdf(true)
     try {
       const doc = new jsPDF()
-
-      // Cover page
-      doc.setFontSize(22)
-      doc.text('Reporte de Inventario', 105, 50, { align: 'center' })
-      doc.setFontSize(12)
-      const now = new Date().toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' })
-      doc.text(`Generado el ${now}`, 105, 60, { align: 'center' })
-      doc.setFontSize(10)
-      doc.text(`Período: ${filter.mode === 'all' ? 'Todo el historial' : `${startDate?.toLocaleDateString('es-CO') || '—'} — ${endDate?.toLocaleDateString('es-CO') || '—'}`}`, 105, 68, { align: 'center' })
-      doc.text(`Total productos: ${products.length}`, 105, 76, { align: 'center' })
-
-      // Summary stats
-      let yPos = 100
-      doc.setFontSize(14)
-      doc.text('Resumen General', 14, yPos); yPos += 10
-      doc.setFontSize(10)
-      const summaryLines = [
-        [`Valor Inventario: ${formatCurrency(overviewStats.totalVal)}`, `Valor Venta: ${formatCurrency(overviewStats.totalSell)}`],
-        [`Productos con stock: ${products.filter((p: any) => p.stock > 0).length}/${products.length}`, `Stock bajo: ${overviewStats.lowStock}`, `Sin stock: ${overviewStats.outStock}`],
-        [`Entradas período: ${overviewStats.totalEntries} un.`, `Salidas período: ${overviewStats.totalWithdrawals} un.`],
-      ]
-      for (const row of summaryLines) {
-        for (const text of row) {
-          doc.text(text, 14, yPos)
-          yPos += 6
-        }
-        yPos += 4
+      const pw = doc.internal.pageSize.getWidth()
+      const M = 14
+      const C = {
+        primary: [26, 95, 122] as [number, number, number],
+        gold: [212, 160, 74] as [number, number, number],
+        grayBg: [245, 246, 248] as [number, number, number],
+        ink: [30, 30, 46] as [number, number, number],
+        inkSec: [90, 91, 110] as [number, number, number],
+        success: [46, 125, 92] as [number, number, number],
+        danger: [196, 64, 64] as [number, number, number],
+        warn: [212, 148, 58] as [number, number, number],
+        line: [200, 200, 200] as [number, number, number],
+        footer: [180, 180, 195] as [number, number, number],
       }
 
-      // Products table
-      yPos += 10
-      if (yPos > 250) { doc.addPage(); yPos = 20 }
-      doc.setFontSize(14)
-      doc.text('Inventario Detallado', 14, yPos); yPos += 10
+      // ── Cover page ──
+      const now = new Date().toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' })
+      const periodStr = filter.mode === 'all'
+        ? 'Todo el historial'
+        : `${startDate?.toLocaleDateString('es-CO') || '—'} — ${endDate?.toLocaleDateString('es-CO') || '—'}`
+      const activeProducts = products.filter((p: any) => p.stock > 0).length
+
+      doc.setFillColor(...C.primary)
+      doc.rect(M, 30, pw - M * 2, 2.5, 'F')
+      doc.setFillColor(...C.gold)
+      doc.rect(M, 32.5, 40, 0.8, 'F')
+
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(16)
+      doc.text('DIBUJARTE EDITORES', M, 48)
+
+      doc.setFont('helvetica', 'normal')
       doc.setFontSize(8)
+      doc.text('Nit: 123.456.789-0', M, 54)
+      doc.text('Tel: (1) 234 5678', M, 58)
+      doc.text('Email: info@dibujarte.com', M, 62)
+      doc.text('Bogotá D.C., Colombia', M, 66)
+
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(24)
+      doc.setTextColor(...C.primary)
+      doc.text('REPORTE DE INVENTARIO', pw / 2, 54, { align: 'center' })
+      doc.setTextColor(0)
+
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(10)
+      doc.setTextColor(...C.inkSec)
+      doc.text(`Generado el ${now}`, pw / 2, 64, { align: 'center' })
+      doc.text(`Período: ${periodStr}`, pw / 2, 72, { align: 'center' })
+      doc.text(`Total productos: ${products.length}`, pw / 2, 80, { align: 'center' })
+
+      doc.setDrawColor(...C.primary)
+      doc.setLineWidth(0.5)
+      doc.line(M, 90, pw - M, 90)
+
+      // ── Summary ──
+      let y = 102
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(11)
+      doc.setTextColor(...C.primary)
+      doc.text('Resumen General', M, y)
+      y += 8
+      doc.setTextColor(0)
+
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(9)
+
+      const summaryBoxes = [
+        { label: 'Valor Inventario', value: formatCurrency(overviewStats.totalVal), color: C.primary },
+        { label: 'Valor Venta', value: formatCurrency(overviewStats.totalSell), color: C.ink },
+        { label: 'Entradas', value: `${overviewStats.totalEntries} un.`, color: C.success },
+        { label: 'Salidas', value: `${overviewStats.totalWithdrawals} un.`, color: C.danger },
+      ]
+      const boxW = (pw - M * 2 - 8) / 4
+      summaryBoxes.forEach((box, i) => {
+        const bx = M + i * (boxW + 2.5)
+        doc.setFillColor(...C.grayBg)
+        doc.roundedRect(bx, y - 5, boxW, 16, 1.5, 1.5, 'F')
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(6)
+        doc.setTextColor(...C.inkSec)
+        doc.text(box.label.toUpperCase(), bx + boxW / 2, y + 0.5, { align: 'center' })
+        doc.setFontSize(10)
+        doc.setTextColor(...box.color)
+        doc.text(box.value, bx + boxW / 2, y + 9, { align: 'center' })
+        doc.setTextColor(0)
+      })
+      y += 22
+
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(8)
+      doc.setTextColor(...C.inkSec)
+      doc.text(`Con stock: ${activeProducts}/${products.length}     Stock bajo: ${overviewStats.lowStock}     Sin stock: ${overviewStats.outStock}`, M, y + 2)
+      doc.setTextColor(0)
+      y += 10
+
+      const [entryRev, withdrRev] = [overviewStats.entryCost, overviewStats.withdrawalRevenue]
+      doc.setFontSize(8)
+      doc.setTextColor(...C.inkSec)
+      doc.text(`Costo entradas: ${formatCurrency(entryRev)}     Ingreso salidas: ${formatCurrency(withdrRev)}     Margen: ${formatCurrency(overviewStats.totalSell - overviewStats.totalVal)}`, M, y + 2)
+      doc.setTextColor(0)
+      y += 12
+
+      // ── Products table ──
+      doc.setDrawColor(...C.line)
+      doc.setLineWidth(0.3)
+      doc.line(M, y, pw - M, y)
+      y += 8
+
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(11)
+      doc.setTextColor(...C.primary)
+      doc.text('Inventario Detallado', M, y)
+      y += 8
+      doc.setTextColor(0)
 
       const tableHeaders = [['Producto', 'SKU', 'Stock', 'Min.', 'Costo', 'Precio', 'Valor', 'Proveedor']]
       const tableRows = products.map((p: any) => [
@@ -221,39 +301,83 @@ export default function InventoryReportsPage() {
       const table = __createTable(doc, {
         head: tableHeaders,
         body: tableRows,
-        startY: yPos,
+        startY: y,
         theme: 'grid',
-        headStyles: { fillColor: [70, 70, 70], fontSize: 8 },
+        headStyles: {
+          fillColor: C.primary,
+          textColor: [255, 255, 255] as [number, number, number],
+          fontSize: 7,
+          fontStyle: 'bold',
+          halign: 'center',
+        },
         bodyStyles: { fontSize: 7 },
-        styles: { cellPadding: 2 },
-        margin: { top: 40 },
+        alternateRowStyles: { fillColor: C.grayBg },
+        styles: { cellPadding: 1.5 },
+        columnStyles: {
+          0: { cellWidth: 'auto' },
+          1: { cellWidth: 22 },
+          2: { cellWidth: 13, halign: 'center' },
+          3: { cellWidth: 10, halign: 'center' },
+          4: { cellWidth: 22, halign: 'right' },
+          5: { cellWidth: 22, halign: 'right' },
+          6: { cellWidth: 24, halign: 'right' },
+          7: { cellWidth: 30 },
+        },
+        margin: { left: M, right: M },
         pageBreak: 'auto',
       })
       __drawTable(doc, table)
       const finalY = table.finalY
 
-      // Low stock section
+      // ── Low stock section ──
       const lowStockProducts = products.filter((p: any) => p.stock <= p.min_stock && p.stock > 0)
       const outStockProducts = products.filter((p: any) => p.stock === 0)
-      const lastY = finalY || yPos + 20
-      let newY = lastY + 20
+      let ny = (finalY || y) + 8
 
-      if (newY + 40 > 280) { doc.addPage(); newY = 20 }
-      doc.setFontSize(14)
-      doc.text('Alertas de Stock', 14, newY); newY += 10
-      doc.setFontSize(10)
-      doc.text(`Productos con stock bajo: ${lowStockProducts.length}`, 14, newY); newY += 7
-      for (const p of lowStockProducts) {
-        doc.text(`• ${p.name} (${p.sku}) — Stock: ${p.stock} / Mínimo: ${p.min_stock}`, 18, newY); newY += 6
-        if (newY > 275) { doc.addPage(); newY = 20 }
-      }
-      newY += 5
-      doc.text(`Productos sin stock: ${outStockProducts.length}`, 14, newY); newY += 7
-      for (const p of outStockProducts) {
-        doc.text(`• ${p.name} (${p.sku})`, 18, newY); newY += 6
-        if (newY > 275) { doc.addPage(); newY = 20 }
+      for (const section of [
+        { label: 'Stock Bajo', icon: '●', color: C.warn, items: lowStockProducts, fmt: (p: any) => `${p.name} (${p.sku}) — Stock: ${p.stock} / Mín: ${p.min_stock}` },
+        { label: 'Sin Stock', icon: '●', color: C.danger, items: outStockProducts, fmt: (p: any) => `${p.name} (${p.sku})` },
+      ]) {
+        if (ny + 20 > 275) { doc.addPage(); ny = 20 }
+        doc.setDrawColor(...C.line)
+        doc.setLineWidth(0.3)
+        doc.line(M, ny, pw - M, ny)
+        ny += 8
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(11)
+        doc.setTextColor(...section.color)
+        doc.text(section.label, M, ny)
+        ny += 8
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(8)
+        doc.setTextColor(...C.inkSec)
+        doc.text(`${section.items.length} producto(s)`, M, ny)
+        ny += 6
+        for (const item of section.items) {
+          if (ny > 275) { doc.addPage(); ny = 20 }
+          doc.setTextColor(...section.color)
+          doc.text(section.icon, M, ny)
+          doc.setTextColor(...C.ink)
+          doc.text(section.fmt(item), M + 4, ny)
+          ny += 5
+        }
+        ny += 4
       }
 
+      // ── Footer on every page ──
+      const totalPages = (doc.internal as any).getNumberOfPages()
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i)
+        doc.setDrawColor(...C.primary)
+        doc.setLineWidth(0.3)
+        doc.line(M, 290, pw - M, 290)
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(6)
+        doc.setTextColor(...C.footer)
+        doc.text(`Generado por Inventarte — Dibujarte Editores · Página ${i} de ${totalPages}`, pw / 2, 294, { align: 'center' })
+      }
+
+      doc.setTextColor(0)
       doc.save('reporte_inventario.pdf')
     } catch (err) {
       console.error('Error generating PDF:', err)
