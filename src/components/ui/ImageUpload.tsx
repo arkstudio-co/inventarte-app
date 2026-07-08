@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { Upload } from 'lucide-react'
+import { Image } from 'lucide-react'
 
 interface ImageUploadProps {
   value: string
@@ -33,7 +33,7 @@ export function ImageUpload({ value, onChange, label = 'Imagen' }: ImageUploadPr
           {value ? (
             <img src={value} alt="" className="w-full h-full object-cover" />
           ) : (
-            <Upload size={20} />
+            <Image size={32} className="opacity-20" />
           )}
         </div>
         <div className="flex-1 space-y-2">

@@ -21,6 +21,7 @@ export function EntryStockModal({ isOpen, onClose, onSuccess, products }: EntryS
   const [quantity, setQuantity] = useState<number | ''>(1)
   const [paymentStatus, setPaymentStatus] = useState<'paid' | 'pending'>('pending')
   const [observations, setObservations] = useState('')
+  const [entryDate, setEntryDate] = useState(new Date().toISOString().split('T')[0])
   const [isAdding, setIsAdding] = useState(false)
   const [error, setError] = useState('')
 
@@ -38,18 +39,19 @@ export function EntryStockModal({ isOpen, onClose, onSuccess, products }: EntryS
     const { error: insertError } = await supabase.from('stock_entries').insert({
       product_id: productId, quantity, company_id: companyId,
       payment_status: paymentStatus, observations: observations || null, created_by: user.id,
+      created_at: entryDate,
     })
     if (insertError) { setError(insertError.message); setIsAdding(false); return }
 
     await supabase.rpc('increment_stock', { p_product_id: productId, p_quantity: quantity })
     setIsAdding(false)
     onClose()
-    setProductId(''); setQuantity(1); setPaymentStatus('pending'); setObservations(''); setError('')
+    setProductId(''); setQuantity(1); setPaymentStatus('pending'); setObservations(''); setEntryDate(new Date().toISOString().split('T')[0]); setError('')
     onSuccess()
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={() => { onClose(); setProductId(''); setQuantity(1); setPaymentStatus('pending'); setObservations(''); setError('') }} title="Registrar Entrada de Stock">
+    <Modal isOpen={isOpen} onClose={() => { onClose(); setProductId(''); setQuantity(1); setPaymentStatus('pending'); setObservations(''); setEntryDate(new Date().toISOString().split('T')[0]); setError('') }} title="Registrar Entrada de Stock">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1.5">
           <label className="text-sm font-medium text-[var(--ink-secondary)]">Producto</label>
@@ -65,6 +67,7 @@ export function EntryStockModal({ isOpen, onClose, onSuccess, products }: EntryS
             ))}
           </select>
         </div>
+        <Input label="Fecha de entrada" type="date" value={entryDate} onChange={(e) => setEntryDate(e.target.value)} />
         <Input label="Cantidad" type="number" min={1} value={quantity} onChange={(e) => setQuantity(e.target.value === '' ? '' : Number(e.target.value))} required />
         <div className="space-y-1.5">
           <label className="text-sm font-medium text-[var(--ink-secondary)]">Estado de pago</label>
@@ -89,7 +92,7 @@ export function EntryStockModal({ isOpen, onClose, onSuccess, products }: EntryS
         </div>
         {error && <div className="text-sm text-[var(--danger)] bg-[var(--danger-light)] px-3 py-2 rounded-[var(--radius-sm)] border border-[var(--danger)]/20">{error}</div>}
         <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="secondary" onClick={() => { onClose(); setProductId(''); setQuantity(1); setPaymentStatus('pending'); setObservations(''); setError('') }}>Cancelar</Button>
+          <Button type="button" variant="secondary" onClick={() => { onClose(); setProductId(''); setQuantity(1); setPaymentStatus('pending'); setObservations(''); setEntryDate(new Date().toISOString().split('T')[0]); setError('') }}>Cancelar</Button>
           <Button type="submit" disabled={isAdding || !productId}>{isAdding ? 'Registrando...' : 'Registrar Entrada'}</Button>
         </div>
       </form>

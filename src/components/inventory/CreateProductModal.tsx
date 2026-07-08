@@ -149,7 +149,7 @@ export function CreateProductModal({ isOpen, onClose, onSuccess }: CreateProduct
         <div className="grid grid-cols-2 gap-3">
           <Input
             id="price"
-            label="Precio venta vendedores"
+            label="Precio base para vendedores"
             type="number"
             step="0.01"
             value={form.price}
