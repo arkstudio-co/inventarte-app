@@ -126,7 +126,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       supabase.from('stock_withdrawals').select('quantity, products!inner(price)').eq('delivery_type', 'paid'),
       supabase.from('payments').select('amount'),
       supabase.from('stock_entries').select('quantity, products!inner(cost)'),
-      wf(supabase.from('administrative_expenses').select('*'), 'expense_date').order('expense_date', { ascending: false }),
+      startDate
+        ? supabase.from('administrative_expenses').select('*').or(`and(expense_date.gte.${startDate},expense_date.lt.${endDate},type.eq.variable),and(type.eq.fixed,expense_date.lte.${endDate})`).order('expense_date', { ascending: false })
+        : supabase.from('administrative_expenses').select('*').order('expense_date', { ascending: false }),
       supabase.from('administrative_expenses').select('amount'),
       supabase.from('accounts_payable').select('amount').eq('is_paid', false),
       wf(supabase.from('other_income').select('*'), 'income_date').order('income_date', { ascending: false }),

@@ -22,6 +22,7 @@ import {
   LayoutDashboard,
   Package,
   Scale,
+  Building2,
 } from 'lucide-react'
 
 interface SubNavItem {
@@ -62,7 +63,16 @@ const navItems = [
   },
   { type: 'link' as const, href: '/settings', label: 'Concepto de Gastos', icon: Receipt },
   { type: 'link' as const, href: '/users', label: 'Usuarios', icon: Users },
-  { type: 'link' as const, href: '/colaboradores', label: 'Vendedores', icon: UserCheck },
+  {
+    type: 'group' as const,
+    label: 'Equipo',
+    icon: Users,
+    href: '/colaboradores',
+    children: [
+      { href: '/colaboradores', label: 'Vendedores', icon: UserCheck },
+      { href: '/colaboradores/proveedores', label: 'Proveedores', icon: Building2 },
+    ],
+  },
   { type: 'link' as const, href: '/landing-admin', label: 'Landing Admin', icon: Palette },
 ]
 
@@ -77,6 +87,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
     Wallet: true,
     Inventario: true,
+    Equipo: true,
   })
 
   const toggleGroup = (label: string) => {

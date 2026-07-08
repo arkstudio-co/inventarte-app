@@ -18,16 +18,7 @@ export default function GastosPage() {
       title="Gastos"
       icon={Building2}
       iconColor="text-[var(--warning)]"
-      action={
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <Button size="sm" onClick={() => setAdminModalOpen(true)}>
-            <Plus size={14} /> Gasto Administrativo
-          </Button>
-          <Button size="sm" onClick={() => setApModalOpen(true)}>
-            <Plus size={14} /> Deuda
-          </Button>
-        </div>
-      }
+    
     >
       {/* Summary rows */}
       <div className="space-y-1 pb-3 border-b border-[var(--border-subtle)]">
@@ -68,7 +59,7 @@ export default function GastosPage() {
                     </span>
                   </p>
                   <p className="text-xs text-[var(--ink-tertiary)]">
-                    {o.category || '—'} • {o.expense_date ? new Date(o.expense_date).toLocaleDateString('es-CO') : '—'}
+                    {o.category || '—'} • {o.type === 'fixed' ? 'Recurrente' : (o.expense_date ? new Date(o.expense_date).toLocaleDateString('es-CO') : '—')}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">

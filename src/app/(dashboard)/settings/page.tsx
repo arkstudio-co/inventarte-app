@@ -14,19 +14,19 @@ import {
   TrendingDown,
   Trash2,
   Edit,
-  Package,
+  CheckCircle,
   Building2,
 } from 'lucide-react'
-import type { AdministrativeExpense, Supplier } from '@/types/database'
+import type { AdministrativeExpense, AccountPayable, Supplier } from '@/types/database'
 
-type ActiveTab = 'fixed' | 'variable' | 'suppliers'
+type ActiveTab = 'fixed' | 'variable' | 'debt'
 
 export default function ConceptoGastosPage() {
   const supabase = createClient()
   const { companyId } = useCompany()
 
   const [expenses, setExpenses] = useState<AdministrativeExpense[]>([])
-  const [suppliers, setSuppliers] = useState<Supplier[]>([])
+  const [ap, setAp] = useState<AccountPayable[]>([])
   const [activeTab, setActiveTab] = useState<ActiveTab>('fixed')
   const [isLoading, setIsLoading] = useState(true)
   const [filter, setFilter] = useState<DateFilterState>({
@@ -36,6 +36,7 @@ export default function ConceptoGastosPage() {
     customStart: '',
     customEnd: '',
   })
+  const [suppliers, setSuppliers] = useState<Supplier[]>([])
 
   const [showExpenseModal, setShowExpenseModal] = useState(false)
   const [editingExpense, setEditingExpense] = useState<AdministrativeExpense | null>(null)
@@ -55,10 +56,9 @@ export default function ConceptoGastosPage() {
     notes: '',
   })
 
-  const [showSupplierModal, setShowSupplierModal] = useState(false)
-  const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null)
-  const [supplierForm, setSupplierForm] = useState({ name: '', contact: '', email: '', phone: '' })
-  const [supplierExpanded, setSupplierExpanded] = useState(false)
+  const [showApModal, setShowApModal] = useState(false)
+  const [apForm, setApForm] = useState<{ supplier_id: string; amount: number | ''; description: string; due_date: string }>({ supplier_id: '', amount: '', description: '', due_date: '' })
+  const [apError, setApError] = useState('')
 
   const [error, setError] = useState('')
 
@@ -69,14 +69,18 @@ export default function ConceptoGastosPage() {
     const endDate = ed ? ed.toISOString() : null
 
     let expensesQuery = supabase.from('administrative_expenses').select('*')
-    if (startDate) expensesQuery = expensesQuery.gte('expense_date', startDate).lt('expense_date', endDate)
+    if (startDate) {
+      expensesQuery = expensesQuery.or(`and(expense_date.gte.${startDate},expense_date.lt.${endDate},type.eq.variable),and(type.eq.fixed,expense_date.lte.${endDate})`)
+    }
     expensesQuery = expensesQuery.order('created_at', { ascending: false })
 
-    const [expensesRes, suppliersRes] = await Promise.all([
+    const [expensesRes, apRes, suppliersRes] = await Promise.all([
       expensesQuery,
+      supabase.from('accounts_payable').select('*, suppliers(*)').eq('is_paid', false).order('created_at', { ascending: false }),
       supabase.from('suppliers').select('*').order('name'),
     ])
     if (expensesRes.data) setExpenses(expensesRes.data as AdministrativeExpense[])
+    if (apRes.data) setAp(apRes.data as AccountPayable[])
     if (suppliersRes.data) setSuppliers(suppliersRes.data)
     setIsLoading(false)
   }
@@ -153,40 +157,32 @@ export default function ConceptoGastosPage() {
     fetchData()
   }
 
-  const openNewSupplier = () => {
-    setEditingSupplier(null)
-    setSupplierForm({ name: '', contact: '', email: '', phone: '' })
-    setShowSupplierModal(true)
-  }
-
-  const openEditSupplier = (s: Supplier) => {
-    setEditingSupplier(s)
-    setSupplierForm({
-      name: s.name,
-      contact: s.contact || '',
-      email: s.email || '',
-      phone: s.phone || '',
-    })
-    setShowSupplierModal(true)
-  }
-
-  const handleSupplierSubmit = async (e: React.FormEvent) => {
+  const handleCreateAp = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!companyId) return
-    if (editingSupplier) {
-      await supabase.from('suppliers').update(supplierForm).eq('id', editingSupplier.id)
-    } else {
-      await supabase.from('suppliers').insert({ ...supplierForm, company_id: companyId })
+    setApError('')
+    const payload: any = {
+      company_id: companyId,
+      amount: apForm.amount === '' ? 0 : apForm.amount,
+      description: apForm.description || null,
+      due_date: apForm.due_date || null,
     }
-    setShowSupplierModal(false)
-    setEditingSupplier(null)
-    setSupplierForm({ name: '', contact: '', email: '', phone: '' })
+    if (apForm.supplier_id) payload.supplier_id = apForm.supplier_id
+    const { error: insertError } = await supabase.from('accounts_payable').insert(payload)
+    if (insertError) { setApError(insertError.message); return }
+    setShowApModal(false)
+    setApForm({ supplier_id: '', amount: '', description: '', due_date: '' })
     fetchData()
   }
 
-  const deleteSupplier = async (id: string) => {
-    if (!confirm('¿Eliminar este proveedor?')) return
-    await supabase.from('suppliers').delete().eq('id', id)
+  const markApAsPaid = async (id: string) => {
+    await supabase.from('accounts_payable').update({ is_paid: true }).eq('id', id)
+    fetchData()
+  }
+
+  const deleteAp = async (id: string) => {
+    if (!confirm('¿Eliminar esta deuda?')) return
+    await supabase.from('accounts_payable').delete().eq('id', id)
     fetchData()
   }
 
@@ -207,7 +203,7 @@ export default function ConceptoGastosPage() {
         </div>
         <p className="text-xs text-[var(--ink-tertiary)] mt-0.5">
           {expense.category}
-          {expense.expense_date && ` · ${new Date(expense.expense_date).toLocaleDateString('es-CO')}`}
+          {expense.expense_date && ` · ${expense.expense_date.split('-').reverse().join('/')}`}
           {expense.notes && ` · ${expense.notes}`}
         </p>
       </div>
@@ -238,7 +234,7 @@ export default function ConceptoGastosPage() {
         <DateFilter value={filter} onChange={setFilter} />
       </div>
 
-      {/* Tabs: Fijos / Variables / Proveedores */}
+      {/* Tabs: Fijos / Variables / Deuda */}
       <div className="flex items-center gap-1 rounded-[var(--radius-md)] bg-[var(--surface-1)] border border-[var(--border-default)] p-1">
         <button
           onClick={() => setActiveTab('fixed')}
@@ -269,17 +265,17 @@ export default function ConceptoGastosPage() {
           )}
         </button>
         <button
-          onClick={() => setActiveTab('suppliers')}
+          onClick={() => setActiveTab('debt')}
           className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm rounded-[var(--radius-sm)] transition-colors cursor-pointer ${
-            activeTab === 'suppliers'
+            activeTab === 'debt'
               ? 'bg-[var(--surface-0)] text-[var(--ink)] font-medium shadow-sm'
               : 'text-[var(--ink-tertiary)] hover:text-[var(--ink-secondary)]'
           }`}
         >
           <Building2 size={16} />
-          Proveedores
-          {suppliers.length > 0 && (
-            <span className="text-xs text-[var(--ink-muted)]">({suppliers.length})</span>
+          Deuda
+          {ap.length > 0 && (
+            <span className="text-xs text-[var(--ink-muted)]">({ap.length})</span>
           )}
         </button>
       </div>
@@ -366,53 +362,50 @@ export default function ConceptoGastosPage() {
             </div>
           )}
 
-          {/* Proveedores */}
-          {activeTab === 'suppliers' && (
+          {/* Deuda */}
+          {activeTab === 'debt' && (
             <div className="space-y-3">
               <div className="rounded-[var(--radius-md)] bg-[var(--surface-1)] border border-[var(--border-default)] overflow-hidden">
                 <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-subtle)]">
                   <div>
-                    <p className="text-sm font-semibold text-[var(--ink)]">Proveedores</p>
-                    <p className="text-xs text-[var(--ink-tertiary)]">{suppliers.length} proveedor{`${suppliers.length !== 1 ? 'es' : ''}`}</p>
+                    <p className="text-sm font-semibold text-[var(--ink)]">Deuda</p>
+                    <p className="text-xs text-[var(--ink-tertiary)]">{ap.length} deuda{ap.length !== 1 ? 's' : ''}</p>
                   </div>
-                  <Button size="sm" onClick={openNewSupplier}>
+                  <Button size="sm" onClick={() => setShowApModal(true)}>
                     <Plus size={14} /> Agregar
                   </Button>
                 </div>
-                {suppliers.length === 0 ? (
+                {ap.length === 0 ? (
                   <div className="px-4 py-8 text-center">
-                    <Package size={32} className="mx-auto mb-2 text-[var(--ink-muted)]" />
-                    <p className="text-sm text-[var(--ink-tertiary)]">No hay proveedores registrados</p>
-                    <Button variant="secondary" size="sm" className="mt-3" onClick={openNewSupplier}>
-                      <Plus size={14} /> Agregar proveedor
+                    <Building2 size={32} className="mx-auto mb-2 text-[var(--ink-muted)]" />
+                    <p className="text-sm text-[var(--ink-tertiary)]">No hay deudas registradas</p>
+                    <Button variant="secondary" size="sm" className="mt-3" onClick={() => setShowApModal(true)}>
+                      <Plus size={14} /> Agregar deuda
                     </Button>
                   </div>
                 ) : (
                   <div className="divide-y divide-[var(--border-subtle)]">
-                    {suppliers.map((s) => (
-                      <div key={s.id} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-[var(--surface-2)]/30 transition-colors">
+                    {ap.map((a) => (
+                      <div key={a.id} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-[var(--surface-2)]/30 transition-colors">
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <Package size={14} className="text-[var(--ink-tertiary)] shrink-0" />
-                            <p className="text-sm font-medium text-[var(--ink)] truncate">{s.name}</p>
-                          </div>
+                          <p className="text-sm font-medium text-[var(--ink)] truncate">{a.suppliers?.name || 'Proveedor'}</p>
                           <p className="text-xs text-[var(--ink-tertiary)] mt-0.5">
-                            {s.contact && `${s.contact}`}
-                            {s.email && ` · ${s.email}`}
-                            {s.phone && ` · ${s.phone}`}
+                            {a.description || '—'}
+                            {a.due_date && ` · Vence: ${a.due_date.split('T')[0].split('-').reverse().join('/')}`}
                           </p>
                         </div>
-                        <div className="flex items-center gap-1 shrink-0">
+                        <div className="flex items-center gap-2 shrink-0">
+                          <p className="text-sm font-bold text-[var(--warning)]">{formatCurrency(a.amount)}</p>
                           <button
-                            onClick={() => openEditSupplier(s)}
-                            className="p-1 text-[var(--ink-tertiary)] hover:text-[var(--tint)] hover:bg-[var(--tint-light)] rounded-[var(--radius-sm)] cursor-pointer transition-colors"
-                            title="Editar"
+                            onClick={() => markApAsPaid(a.id)}
+                            className="p-1 text-[var(--ink-tertiary)] hover:text-[var(--success)] rounded-[var(--radius-sm)] cursor-pointer"
+                            title="Marcar como pagada"
                           >
-                            <Edit size={14} />
+                            <CheckCircle size={14} />
                           </button>
                           <button
-                            onClick={() => deleteSupplier(s.id)}
-                            className="p-1 text-[var(--ink-tertiary)] hover:text-[var(--danger)] hover:bg-[var(--danger-light)] rounded-[var(--radius-sm)] cursor-pointer transition-colors"
+                            onClick={() => deleteAp(a.id)}
+                            className="p-1 text-[var(--ink-tertiary)] hover:text-[var(--danger)] rounded-[var(--radius-sm)] cursor-pointer"
                             title="Eliminar"
                           >
                             <Trash2 size={14} />
@@ -494,38 +487,37 @@ export default function ConceptoGastosPage() {
         </form>
       </Modal>
 
-      {/* Supplier Modal */}
+      {/* Debt Modal */}
       <Modal
-        isOpen={showSupplierModal}
-        onClose={() => setShowSupplierModal(false)}
-        title={editingSupplier ? 'Editar Proveedor' : 'Nuevo Proveedor'}
+        isOpen={showApModal}
+        onClose={() => setShowApModal(false)}
+        title="Agregar Deuda"
       >
-        <form onSubmit={handleSupplierSubmit} className="space-y-4">
-          <Input
-            label="Nombre"
-            value={supplierForm.name}
-            onChange={(e) => setSupplierForm({ ...supplierForm, name: e.target.value })}
-            required
-          />
-          <Input
-            label="Contacto"
-            value={supplierForm.contact}
-            onChange={(e) => setSupplierForm({ ...supplierForm, contact: e.target.value })}
-          />
-          <Input
-            label="Correo"
-            type="email"
-            value={supplierForm.email}
-            onChange={(e) => setSupplierForm({ ...supplierForm, email: e.target.value })}
-          />
-          <Input
-            label="Teléfono"
-            value={supplierForm.phone}
-            onChange={(e) => setSupplierForm({ ...supplierForm, phone: e.target.value })}
-          />
+        <form onSubmit={handleCreateAp} className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-[var(--ink-secondary)]">Proveedor</label>
+            <select
+              value={apForm.supplier_id}
+              onChange={(e) => setApForm({ ...apForm, supplier_id: e.target.value })}
+              className="w-full px-3 py-2 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+            >
+              <option value="">Seleccionar proveedor</option>
+              {suppliers.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          </div>
+          <Input label="Monto" type="number" value={apForm.amount} onChange={(e) => setApForm({ ...apForm, amount: e.target.value === '' ? '' : Number(e.target.value) })} required min={1} />
+          <Input label="Descripción" value={apForm.description} onChange={(e) => setApForm({ ...apForm, description: e.target.value })} />
+          <Input label="Fecha de vencimiento" type="date" value={apForm.due_date} onChange={(e) => setApForm({ ...apForm, due_date: e.target.value })} />
+          {apError && (
+            <div className="text-sm text-[var(--danger)] bg-[var(--danger-light)] px-3 py-2 rounded-[var(--radius-sm)] border border-[var(--danger)]/20">
+              {apError}
+            </div>
+          )}
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="ghost" onClick={() => setShowSupplierModal(false)}>Cancelar</Button>
-            <Button type="submit">{editingSupplier ? 'Guardar' : 'Crear'}</Button>
+            <Button type="button" variant="ghost" onClick={() => setShowApModal(false)}>Cancelar</Button>
+            <Button type="submit">Crear Deuda</Button>
           </div>
         </form>
       </Modal>
