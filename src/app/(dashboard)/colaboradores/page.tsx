@@ -471,37 +471,55 @@ function EditSellerModal({ seller, onUpdated }: { seller: Seller; onUpdated: () 
   )
 }
 
+let assignItemId = 0
+function nextAssignId() { return `ai-${++assignItemId}` }
+
 function AssignProductModal({ sellerId, products, onAssigned }: { sellerId: string; products: Product[]; onAssigned: () => void }) {
   const supabase = createClient()
   const router = useRouter()
   const [open, setOpen] = useState(false)
-  const [form, setForm] = useState<{
-    product_id: string
-    quantity: number | ''
-    delivery_type: 'paid' | 'pending'
-    payment_method: 'cash' | 'transfer'
-    bank_account: string
-    card_last_four: string
-    payment_observations: string
-  }>({
-    product_id: '',
-    quantity: '',
-    delivery_type: 'pending',
-    payment_method: 'cash',
-    bank_account: '',
-    card_last_four: '',
-    payment_observations: '',
-  })
+  const [items, setItems] = useState<{ id: string; product_id: string; quantity: number | '' }[]>([
+    { id: nextAssignId(), product_id: '', quantity: '' },
+  ])
+  const [deliveryType, setDeliveryType] = useState<'paid' | 'pending'>('pending')
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'transfer'>('cash')
+  const [bankAccount, setBankAccount] = useState('')
+  const [cardLastFour, setCardLastFour] = useState('')
+  const [paymentObservations, setPaymentObservations] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  const selectedProduct = products.find((p) => p.id === form.product_id)
+  const addItem = () => setItems((prev) => [...prev, { id: nextAssignId(), product_id: '', quantity: '' }])
+  const updateItem = (id: string, field: { product_id?: string; quantity?: number | '' }) =>
+    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...field } : i)))
+  const removeItem = (id: string) => setItems((prev) => prev.filter((i) => i.id !== id))
+
+  const getProduct = (pid: string) => products.find((p) => p.id === pid)
+  const totalValue = items.reduce((s, i) => {
+    if (!i.product_id || i.quantity === '') return s
+    const p = getProduct(i.product_id)
+    return s + (i.quantity as number) * (p?.price || 0)
+  }, 0)
+  const totalQty = items.reduce((s, i) => {
+    if (!i.product_id || i.quantity === '') return s
+    return s + (i.quantity as number)
+  }, 0)
+
+  const resetForm = () => {
+    setItems([{ id: nextAssignId(), product_id: '', quantity: '' }])
+    setDeliveryType('pending')
+    setPaymentMethod('cash')
+    setBankAccount('')
+    setCardLastFour('')
+    setPaymentObservations('')
+    setError('')
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const qty = form.quantity === '' ? 0 : form.quantity
-    if (!form.product_id || qty < 1) return
-    if (form.delivery_type === 'paid' && form.payment_method === 'transfer' && (!form.bank_account.trim() || form.card_last_four.length !== 4)) {
+    const validItems = items.filter((i) => i.product_id && i.quantity !== '' && (i.quantity as number) > 0)
+    if (validItems.length === 0) { setError('Agrega al menos un producto'); return }
+    if (deliveryType === 'paid' && paymentMethod === 'transfer' && (!bankAccount.trim() || cardLastFour.length !== 4)) {
       setError('Completa la cuenta bancaria y los últimos 4 dígitos')
       return
     }
@@ -514,21 +532,21 @@ function AssignProductModal({ sellerId, products, onAssigned }: { sellerId: stri
       seller_id: sellerId,
       person_name: seller.data?.name || '',
       person_email: seller.data?.email || '',
-      delivery_type: form.delivery_type,
+      delivery_type: deliveryType,
       notes: null,
-      items: [{
-        product_id: form.product_id,
-        product_name: selectedProduct?.name || '',
-        quantity: qty,
-        unit_price: selectedProduct?.price || 0,
-      }],
+      items: validItems.map((i) => ({
+        product_id: i.product_id,
+        product_name: getProduct(i.product_id)?.name || '',
+        quantity: i.quantity,
+        unit_price: getProduct(i.product_id)?.price || 0,
+      })),
     }
 
-    if (form.delivery_type === 'paid') {
-      payload.payment_method = form.payment_method
-      payload.bank_account = form.bank_account || null
-      payload.card_last_four = form.card_last_four || null
-      payload.payment_observations = form.payment_observations || null
+    if (deliveryType === 'paid') {
+      payload.payment_method = paymentMethod
+      payload.bank_account = bankAccount || null
+      payload.card_last_four = cardLastFour || null
+      payload.payment_observations = paymentObservations || null
     }
 
     const res = await fetch('/api/remisiones', {
@@ -547,7 +565,7 @@ function AssignProductModal({ sellerId, products, onAssigned }: { sellerId: stri
     const remision = await res.json()
     setSaving(false)
     setOpen(false)
-    setForm({ product_id: '', quantity: '', delivery_type: 'pending', payment_method: 'cash', bank_account: '', card_last_four: '', payment_observations: '' })
+    resetForm()
     onAssigned()
     router.push(`/colaboradores/remisiones/${remision.id}`)
   }
@@ -562,74 +580,113 @@ function AssignProductModal({ sellerId, products, onAssigned }: { sellerId: stri
       >
         <Package size={12} /> Asignar producto
       </button>
-      <Modal isOpen={open} onClose={() => setOpen(false)} title="Asignar Producto">
+      <Modal isOpen={open} onClose={() => { setOpen(false); resetForm() }} title="Asignar Producto">
         <form onSubmit={handleSubmit} className="space-y-4">
-          <select
-            value={form.product_id}
-            onChange={(e) => setForm({ ...form, product_id: e.target.value })}
-            className="w-full px-3 py-2 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors"
-            required
-          >
-            <option value="">Seleccionar producto</option>
-            {products.map((p) => (
-              <option key={p.id} value={p.id}>{p.name} — {formatCurrency(p.price)} c/u</option>
-            ))}
-          </select>
+          <div className="rounded-[var(--radius-md)] border border-[var(--border-default)] overflow-hidden">
+            <div className="flex items-center justify-between px-3 py-2 bg-[var(--surface-0)] border-b border-[var(--border-default)]">
+              <span className="text-xs font-semibold uppercase tracking-wide text-[var(--ink-tertiary)]">Productos a entregar</span>
+              <button
+                type="button"
+                onClick={addItem}
+                className="text-xs font-medium text-[var(--primary)] hover:bg-[var(--primary-light)] px-2 py-1 rounded-[var(--radius-sm)] transition-colors cursor-pointer"
+              >
+                + Añadir
+              </button>
+            </div>
 
-          <Input label="Cantidad" type="number" min={1} value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value === '' ? '' : Number(e.target.value) })} required />
+            {(() => {
+              const selectedIds = new Set(items.map((i) => i.product_id).filter(Boolean))
+              return items.map((item) => {
+                const prod = item.product_id ? getProduct(item.product_id) : undefined
+                return (
+                  <div key={item.id} className="grid grid-cols-[1fr_72px_28px] gap-2 px-3 py-2 items-center border-b border-[var(--border-default)] last:border-b-0">
+                    <select
+                      value={item.product_id}
+                      onChange={(e) => updateItem(item.id, { product_id: e.target.value })}
+                      className="w-full px-2 py-1.5 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+                    >
+                      <option value="">Seleccionar producto</option>
+                      {products
+                        .filter((p) => p.is_active && (p.id === item.product_id || !selectedIds.has(p.id)))
+                        .map((p) => (
+                          <option key={p.id} value={p.id}>{p.name} — {formatCurrency(p.price)} c/u</option>
+                        ))}
+                    </select>
+                    <input
+                      type="number"
+                      min={1}
+                      max={prod?.stock || 1}
+                      value={item.quantity}
+                      onChange={(e) => updateItem(item.id, { quantity: e.target.value === '' ? '' : Number(e.target.value) })}
+                      placeholder="Cant."
+                      className="w-full px-2 py-1.5 text-sm text-center rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeItem(item.id)}
+                      disabled={items.length <= 1}
+                      className="w-7 h-7 flex items-center justify-center text-xs rounded-[var(--radius-sm)] text-[var(--ink-muted)] hover:bg-[var(--danger-light)] hover:text-[var(--danger)] transition-colors disabled:opacity-20 disabled:pointer-events-none cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )
+              })
+            })()}
+          </div>
+
+          {totalValue > 0 && (
+            <div className="rounded-[var(--radius-sm)] bg-[var(--primary-light)] border border-[var(--primary)]/20 p-3">
+              <p className="text-xs text-[var(--ink-tertiary)] uppercase tracking-wide font-semibold">Total</p>
+              <p className="text-sm font-bold text-[var(--primary)]">{formatCurrency(totalValue)} ({totalQty} unidades)</p>
+            </div>
+          )}
 
           <select
-            value={form.delivery_type}
-            onChange={(e) => setForm({ ...form, delivery_type: e.target.value as 'paid' | 'pending' })}
+            value={deliveryType}
+            onChange={(e) => setDeliveryType(e.target.value as 'paid' | 'pending')}
             className="w-full px-3 py-2 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors"
           >
             <option value="paid">Producto pagado</option>
             <option value="pending">Producto por pagar</option>
           </select>
 
-          {form.delivery_type === 'paid' && (
-            <>
-              <div className="border-t border-[var(--border-subtle)] pt-3">
-                <p className="text-xs font-semibold text-[var(--ink-tertiary)] uppercase mb-3">Información del pago</p>
+          {deliveryType === 'paid' && (
+            <div className="border-t border-[var(--border-subtle)] pt-3">
+              <p className="text-xs font-semibold text-[var(--ink-tertiary)] uppercase mb-3">Información del pago</p>
 
-                <select
-                  value={form.payment_method}
-                  onChange={(e) => setForm({ ...form, payment_method: e.target.value as 'cash' | 'transfer' })}
-                  className="w-full px-3 py-2 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors"
-                >
-                  <option value="cash">Efectivo</option>
-                  <option value="transfer">Transferencia</option>
-                </select>
+              <select
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value as 'cash' | 'transfer')}
+                className="w-full px-3 py-2 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+              >
+                <option value="cash">Efectivo</option>
+                <option value="transfer">Transferencia</option>
+              </select>
 
-                {form.payment_method === 'transfer' && (
-                  <div className="space-y-3 mt-3">
-                    <Input
-                      label="Cuenta bancaria"
-                      value={form.bank_account}
-                      onChange={(e) => setForm({ ...form, bank_account: e.target.value })}
-                      required
-                    />
-                    <Input
-                      label="Últimos 4 dígitos de la tarjeta"
-                      value={form.card_last_four}
-                      onChange={(e) => setForm({ ...form, card_last_four: e.target.value.slice(0, 4) })}
-                      maxLength={4}
-                      required
-                    />
-                  </div>
-                )}
-
-                <div className="space-y-1.5 mt-3">
-                  <label className="text-sm font-medium text-[var(--ink-secondary)]">Observaciones</label>
-                  <textarea
-                    className="w-full px-3 py-2 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors resize-none"
-                    rows={2}
-                    value={form.payment_observations}
-                    onChange={(e) => setForm({ ...form, payment_observations: e.target.value })}
+              {paymentMethod === 'transfer' && (
+                <div className="space-y-3 mt-3">
+                  <Input label="Cuenta bancaria" value={bankAccount} onChange={(e) => setBankAccount(e.target.value)} required />
+                  <Input
+                    label="Últimos 4 dígitos de la tarjeta"
+                    value={cardLastFour}
+                    onChange={(e) => setCardLastFour(e.target.value.slice(0, 4))}
+                    maxLength={4}
+                    required
                   />
                 </div>
+              )}
+
+              <div className="space-y-1.5 mt-3">
+                <label className="text-sm font-medium text-[var(--ink-secondary)]">Observaciones</label>
+                <textarea
+                  className="w-full px-3 py-2 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors resize-none"
+                  rows={2}
+                  value={paymentObservations}
+                  onChange={(e) => setPaymentObservations(e.target.value)}
+                />
               </div>
-            </>
+            </div>
           )}
 
           {error && (
@@ -639,7 +696,7 @@ function AssignProductModal({ sellerId, products, onAssigned }: { sellerId: stri
           )}
 
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
+            <Button type="button" variant="ghost" onClick={() => { setOpen(false); resetForm() }}>Cancelar</Button>
             <Button type="submit" disabled={saving}>
               {saving ? 'Asignando...' : 'Asignar'}
             </Button>
