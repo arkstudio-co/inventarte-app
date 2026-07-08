@@ -10,7 +10,6 @@ import { Modal } from '@/components/ui/Modal'
 import type { Product, Supplier } from '@/types/database'
 
 const REASONS = [
-  { value: '', label: 'Seleccionar motivo' },
   { value: 'defectuoso', label: 'Producto defectuoso' },
   { value: 'error_inventario', label: 'Error de inventario' },
   { value: 'vencido', label: 'Producto vencido' },
