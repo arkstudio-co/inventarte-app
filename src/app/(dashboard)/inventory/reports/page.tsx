@@ -23,7 +23,7 @@ import {
   FileSpreadsheet,
 } from 'lucide-react'
 import jsPDF from 'jspdf'
-import 'jspdf-autotable'
+import autoTable from 'jspdf-autotable'
 
 export default function InventoryReportsPage() {
   const supabase = createClient()
@@ -218,7 +218,7 @@ export default function InventoryReportsPage() {
         formatCurrency(p.stock * p.cost), p.suppliers?.name || '',
       ])
 
-      ;(doc as any).autoTable({
+      const { finalY } = autoTable(doc, {
         head: tableHeaders,
         body: tableRows,
         startY: yPos,
@@ -228,12 +228,12 @@ export default function InventoryReportsPage() {
         styles: { cellPadding: 2 },
         margin: { top: 40 },
         pageBreak: 'auto',
-      })
+      }) as any
 
       // Low stock section
       const lowStockProducts = products.filter((p: any) => p.stock <= p.min_stock && p.stock > 0)
       const outStockProducts = products.filter((p: any) => p.stock === 0)
-      const lastY = (doc as any).lastAutoTable?.finalY || yPos + 20
+      const lastY = finalY || yPos + 20
       let newY = lastY + 20
 
       if (newY + 40 > 280) { doc.addPage(); newY = 20 }
