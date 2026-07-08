@@ -117,11 +117,12 @@ export function EntryStockModal({ isOpen, onClose, onSuccess, products }: EntryS
         if (apError) { setError(apError.message); setIsAdding(false); return }
       }
 
-      const { error: stockError } = await supabase.rpc('increment_stock', {
+      const { data: stockResult, error: stockError } = await supabase.rpc('increment_stock', {
         p_product_id: item.product_id,
         p_quantity: qty,
       })
-      if (stockError) { setError(stockError.message); setIsAdding(false); return }
+      const sr = stockResult as any
+      if (stockError || sr?.error) { setError(sr?.error || stockError?.message); setIsAdding(false); return }
     }
 
     setIsAdding(false)

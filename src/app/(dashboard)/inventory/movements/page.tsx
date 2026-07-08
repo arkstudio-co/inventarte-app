@@ -73,10 +73,11 @@ export default function InventoryMovementsPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setIsLoading(false); setError('Debes iniciar sesión'); return }
 
-    const [productsRes, entriesRes, withdrawalsRes] = await Promise.all([
+    const [productsRes, entriesRes, withdrawalsRes, adjustmentsRes] = await Promise.all([
       supabase.from('products').select('id, name, sku, stock').eq('is_active', true).order('name'),
       supabase.from('stock_entries').select('*, products!inner(name, sku, cost)').order('created_at', { ascending: false }),
       supabase.from('stock_withdrawals').select('*, products!inner(name, sku, price)').order('withdrawal_date', { ascending: false }),
+      supabase.from('stock_adjustments').select('*, products!inner(name, sku, cost)').order('created_at', { ascending: false }),
     ])
 
     if (productsRes.error) { setError(productsRes.error.message); setIsLoading(false); return }
@@ -84,6 +85,7 @@ export default function InventoryMovementsPage() {
     const productList = (productsRes.data || []) as any[]
     const entriesList = (entriesRes.data || []) as any[]
     const withdrawalsList = (withdrawalsRes.data || []) as any[]
+    const adjustmentsList = (adjustmentsRes.data || []) as any[]
 
     const productMap = new Map<string, { name: string; sku: string }>()
     for (const p of productList) productMap.set(p.id, { name: p.name, sku: p.sku })
@@ -111,6 +113,24 @@ export default function InventoryMovementsPage() {
         type: 'withdrawal', quantity: w.quantity, value: w.quantity * (w.products?.price || 0), balance: 0,
         reference: w.person_name, observations: w.observations,
         documentType: w.delivery_type === 'paid' ? 'Venta' : 'Retiro', paymentStatus: w.delivery_type,
+      })
+    }
+
+    for (const a of adjustmentsList) {
+      const prod = productMap.get(a.product_id)
+      if (!prod) continue
+      const qty = a.adjustment_type === 'negative' ? -a.quantity : a.quantity
+      mergedMovements.push({
+        id: `adj-${a.id}`, date: new Date(a.created_at), dateStr: a.created_at,
+        productId: a.product_id, productName: prod.name, productSku: prod.sku,
+        type: a.adjustment_type === 'negative' ? 'withdrawal' : 'entry',
+        quantity: qty,
+        value: qty * (a.products?.cost || 0),
+        balance: 0,
+        reference: 'Ajuste',
+        observations: a.reason || a.reason_code,
+        documentType: 'Ajuste',
+        paymentStatus: null,
       })
     }
 

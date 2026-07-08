@@ -35,13 +35,14 @@ export async function POST(request: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   for (const row of rows) {
-    const { error: stockError } = await supabase.rpc('decrement_stock', {
+    const { data: stockResult, error: stockError } = await supabase.rpc('decrement_stock', {
       p_product_id: row.product_id,
       p_quantity: row.quantity,
     })
-    if (stockError) {
+    const result = stockResult as any
+    if (stockError || result?.error) {
       await supabase.from('stock_withdrawals').delete().in('id', withdrawals.map((w: any) => w.id))
-      return NextResponse.json({ error: stockError.message }, { status: 500 })
+      return NextResponse.json({ error: result?.error || stockError?.message }, { status: 500 })
     }
   }
 

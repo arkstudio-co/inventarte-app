@@ -118,22 +118,26 @@ export async function POST(request: Request) {
   // Stock operations: decrement for sales, increment for returns
   if (remisionType === 'sale') {
     for (const item of items) {
-      const { error: stockError } = await supabase.rpc('decrement_stock', {
+      const { data: stockResult, error: stockError } = await supabase.rpc('decrement_stock', {
         p_product_id: item.product_id,
         p_quantity: item.quantity,
       })
-      if (stockError) {
-        return NextResponse.json({ error: `Error descontando stock de ${item.product_name}: ${stockError.message}` }, { status: 500 })
+      const sr = stockResult as any
+      if (stockError || sr?.error) {
+        await supabase.from('remision_items').delete().eq('remision_id', remision.id)
+        await supabase.from('remisiones').delete().eq('id', remision.id)
+        return NextResponse.json({ error: sr?.error || `Error descontando stock de ${item.product_name}: ${stockError?.message}` }, { status: 500 })
       }
     }
   } else if (remisionType === 'return' && items) {
     for (const item of items) {
-      const { error: stockError } = await supabase.rpc('increment_stock', {
+      const { data: stockResult, error: stockError } = await supabase.rpc('increment_stock', {
         p_product_id: item.product_id,
         p_quantity: item.quantity,
       })
-      if (stockError) {
-        console.error(`Error reintegrando stock de ${item.product_name}:`, stockError)
+      const sr = stockResult as any
+      if (stockError || sr?.error) {
+        console.error(`Error reintegrando stock de ${item.product_name}:`, sr?.error || stockError)
       }
     }
   }

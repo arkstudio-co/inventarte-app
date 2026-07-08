@@ -60,6 +60,7 @@ export interface Product {
   price: number
   cost: number
   gramaje: number | null
+  suggested_price: number | null
   supplier_id: string | null
   is_active: boolean
   created_by: string

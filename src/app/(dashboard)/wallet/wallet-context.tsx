@@ -119,10 +119,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       wf(supabase.from('accounts_payable').select('*, suppliers(*)').eq('is_paid', false), 'created_at').order('created_at', { ascending: false }),
       supabase.from('suppliers').select('*').order('name'),
       wf(supabase.from('stock_withdrawals').select('quantity, products!inner(price)').eq('delivery_type', 'paid'), 'withdrawal_date'),
-      wf(supabase.from('stock_entries').select('quantity, products!inner(cost)'), 'created_at'),
+      wf(supabase.from('stock_entries').select('quantity, products!inner(cost)').eq('payment_status', 'paid'), 'created_at'),
       wf(supabase.from('stock_withdrawals').select('pending_amount').eq('delivery_type', 'pending').gt('pending_amount', 0), 'withdrawal_date'),
       wf(supabase.from('payments').select('amount'), 'created_at'),
-      supabase.from('products').select('price, stock'),
+      supabase.from('products').select('cost, stock'),
       supabase.from('stock_withdrawals').select('quantity, products!inner(price)').eq('delivery_type', 'paid'),
       supabase.from('payments').select('amount'),
       supabase.from('stock_entries').select('quantity, products!inner(cost)'),
@@ -143,7 +143,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     if (expenseTotalRes.data) setExpenseTotals(expenseTotalRes.data.reduce((s: number, e: any) => s + (e.quantity * (e.products?.cost || 0)), 0))
     if (arTotalRes.data) setArTotals(arTotalRes.data.reduce((s: number, a: any) => s + (a.pending_amount || 0), 0))
     if (paymentsRes.data) setPaymentsTotal(paymentsRes.data.reduce((s: number, p: any) => s + p.amount, 0))
-    if (productsRes.data) setInventoryValue(productsRes.data.reduce((s: number, p: any) => s + (p.price * p.stock), 0))
+    if (productsRes.data) setInventoryValue(productsRes.data.reduce((s: number, p: any) => s + ((p.cost || 0) * p.stock), 0))
     if (balanceIncomeRes.data) setBalanceIncome(balanceIncomeRes.data.reduce((s: number, i: any) => s + (i.quantity * (i.products?.price || 0)), 0))
     if (balancePaymentsRes.data) setBalancePayments(balancePaymentsRes.data.reduce((s: number, p: any) => s + p.amount, 0))
     if (balanceExpensesRes.data) setBalanceExpenses(balanceExpensesRes.data.reduce((s: number, e: any) => s + (e.quantity * (e.products?.cost || 0)), 0))
