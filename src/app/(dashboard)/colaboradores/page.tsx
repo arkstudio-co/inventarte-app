@@ -707,20 +707,45 @@ function AssignProductModal({ sellerId, products, onAssigned }: { sellerId: stri
   )
 }
 
+let returnItemId = 0
+function nextReturnId() { return `ri-${++returnItemId}` }
+
 function RegisterReturnModal({ sellerId, products, onRegistered }: { sellerId: string; products: Product[]; onRegistered: () => void }) {
   const supabase = createClient()
   const router = useRouter()
   const [open, setOpen] = useState(false)
-  const [form, setForm] = useState({ product_id: '', quantity: '' as number | '', observations: '' })
+  const [items, setItems] = useState<{ id: string; product_id: string; quantity: number | '' }[]>([
+    { id: nextReturnId(), product_id: '', quantity: '' },
+  ])
+  const [observations, setObservations] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  const selectedProduct = products.find((p) => p.id === form.product_id)
+  const addItem = () => setItems((prev) => [...prev, { id: nextReturnId(), product_id: '', quantity: '' }])
+  const updateItem = (id: string, field: { product_id?: string; quantity?: number | '' }) =>
+    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...field } : i)))
+  const removeItem = (id: string) => setItems((prev) => prev.filter((i) => i.id !== id))
+
+  const getProduct = (pid: string) => products.find((p) => p.id === pid)
+  const totalValue = items.reduce((s, i) => {
+    if (!i.product_id || i.quantity === '') return s
+    return s + (i.quantity as number) * (getProduct(i.product_id)?.price || 0)
+  }, 0)
+  const totalQty = items.reduce((s, i) => {
+    if (!i.product_id || i.quantity === '') return s
+    return s + (i.quantity as number)
+  }, 0)
+
+  const resetForm = () => {
+    setItems([{ id: nextReturnId(), product_id: '', quantity: '' }])
+    setObservations('')
+    setError('')
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const qty = form.quantity === '' ? 0 : form.quantity
-    if (!form.product_id || qty < 1) return
+    const validItems = items.filter((i) => i.product_id && i.quantity !== '' && (i.quantity as number) > 0)
+    if (validItems.length === 0) { setError('Agrega al menos un producto'); return }
     setSaving(true)
     setError('')
 
@@ -735,13 +760,13 @@ function RegisterReturnModal({ sellerId, products, onRegistered }: { sellerId: s
         person_email: seller.data?.email || '',
         type: 'return',
         delivery_type: 'paid',
-        notes: form.observations || null,
-        items: [{
-          product_id: form.product_id,
-          product_name: selectedProduct?.name || '',
-          quantity: qty,
-          unit_price: selectedProduct?.price || 0,
-        }],
+        notes: observations || null,
+        items: validItems.map((i) => ({
+          product_id: i.product_id,
+          product_name: getProduct(i.product_id)?.name || '',
+          quantity: i.quantity,
+          unit_price: getProduct(i.product_id)?.price || 0,
+        })),
       }),
     })
 
@@ -755,7 +780,7 @@ function RegisterReturnModal({ sellerId, products, onRegistered }: { sellerId: s
     const remision = await res.json()
     setSaving(false)
     setOpen(false)
-    setForm({ product_id: '', quantity: '', observations: '' })
+    resetForm()
     onRegistered()
     router.push(`/colaboradores/remisiones/${remision.id}`)
   }
@@ -768,31 +793,82 @@ function RegisterReturnModal({ sellerId, products, onRegistered }: { sellerId: s
       >
         <Undo2 size={12} /> Registrar devolución
       </button>
-      <Modal isOpen={open} onClose={() => setOpen(false)} title="Registrar Devolución">
+      <Modal isOpen={open} onClose={() => { setOpen(false); resetForm() }} title="Registrar Devolución">
         <form onSubmit={handleSubmit} className="space-y-4">
-          <select
-            value={form.product_id}
-            onChange={(e) => setForm({ ...form, product_id: e.target.value })}
-            className="w-full px-3 py-2 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors"
-            required
-          >
-            <option value="">Seleccionar producto</option>
-            {products.map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </select>
-          <Input label="Cantidad" type="number" min={1} value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value === '' ? '' : Number(e.target.value) })} required />
+          <div className="rounded-[var(--radius-md)] border border-[var(--border-default)] overflow-hidden">
+            <div className="flex items-center justify-between px-3 py-2 bg-[var(--surface-0)] border-b border-[var(--border-default)]">
+              <span className="text-xs font-semibold uppercase tracking-wide text-[var(--ink-tertiary)]">Productos a devolver</span>
+              <button
+                type="button"
+                onClick={addItem}
+                className="text-xs font-medium text-[var(--primary)] hover:bg-[var(--primary-light)] px-2 py-1 rounded-[var(--radius-sm)] transition-colors cursor-pointer"
+              >
+                + Añadir
+              </button>
+            </div>
+
+            {(() => {
+              const selectedIds = new Set(items.map((i) => i.product_id).filter(Boolean))
+              return items.map((item) => (
+                <div key={item.id} className="grid grid-cols-[1fr_72px_28px] gap-2 px-3 py-2 items-center border-b border-[var(--border-default)] last:border-b-0">
+                  <select
+                    value={item.product_id}
+                    onChange={(e) => updateItem(item.id, { product_id: e.target.value })}
+                    className="w-full px-2 py-1.5 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+                  >
+                    <option value="">Seleccionar producto</option>
+                    {products
+                      .filter((p) => p.is_active && (p.id === item.product_id || !selectedIds.has(p.id)))
+                      .map((p) => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                  </select>
+                  <input
+                    type="number"
+                    min={1}
+                    value={item.quantity}
+                    onChange={(e) => updateItem(item.id, { quantity: e.target.value === '' ? '' : Number(e.target.value) })}
+                    placeholder="Cant."
+                    className="w-full px-2 py-1.5 text-sm text-center rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeItem(item.id)}
+                    disabled={items.length <= 1}
+                    className="w-7 h-7 flex items-center justify-center text-xs rounded-[var(--radius-sm)] text-[var(--ink-muted)] hover:bg-[var(--danger-light)] hover:text-[var(--danger)] transition-colors disabled:opacity-20 disabled:pointer-events-none cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))
+            })()}
+          </div>
+
+          {totalValue > 0 && (
+            <div className="rounded-[var(--radius-sm)] bg-[var(--primary-light)] border border-[var(--primary)]/20 p-3">
+              <p className="text-xs text-[var(--ink-tertiary)] uppercase tracking-wide font-semibold">Total devolución</p>
+              <p className="text-sm font-bold text-[var(--primary)]">${totalValue.toLocaleString('es-CO')} ({totalQty} unidades)</p>
+            </div>
+          )}
+
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-[var(--ink-secondary)]">Observaciones</label>
             <textarea
               className="w-full px-3 py-2 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors resize-none"
               rows={2}
-              value={form.observations}
-              onChange={(e) => setForm({ ...form, observations: e.target.value })}
+              value={observations}
+              onChange={(e) => setObservations(e.target.value)}
             />
           </div>
+
+          {error && (
+            <div className="text-sm text-[var(--danger)] bg-[var(--danger-light)] px-3 py-2 rounded-[var(--radius-sm)] border border-[var(--danger)]/20">
+              {error}
+            </div>
+          )}
+
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
+            <Button type="button" variant="ghost" onClick={() => { setOpen(false); resetForm() }}>Cancelar</Button>
             <Button type="submit" disabled={saving}>{saving ? 'Guardando...' : 'Registrar'}</Button>
           </div>
         </form>
