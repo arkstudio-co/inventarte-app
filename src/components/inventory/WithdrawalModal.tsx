@@ -162,33 +162,35 @@ export function WithdrawalModal({ productId, onClose, onSuccess }: WithdrawalMod
             </button>
           </div>
 
-          {items.map((item, idx) => {
-            const prod = item.product_id ? getProduct(item.product_id) : undefined
-            return (
-              <div key={item.id} className="grid grid-cols-[1fr_72px_28px] gap-2 px-3 py-2 items-center border-b border-[var(--border-default)] last:border-b-0">
-                <select
-                  value={item.product_id}
-                  onChange={(e) => updateItem(item.id, { product_id: e.target.value })}
-                  className="w-full px-2 py-1.5 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors"
-                >
-                  <option value="">Seleccionar producto</option>
-                  {products
-                    .filter((p) => p.stock > 0)
-                    .map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name} ({p.sku}) — Stock: {p.stock}
-                      </option>
-                    ))}
-                </select>
-                <input
-                  type="number"
-                  min={1}
-                  max={prod?.stock || 1}
-                  value={item.quantity}
-                  onChange={(e) => updateItem(item.id, { quantity: e.target.value === '' ? '' : Number(e.target.value) })}
-                  placeholder="Cant."
-                  className="w-full px-2 py-1.5 text-sm text-center rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors"
-                />
+          {(() => {
+            const selectedIds = new Set(items.map((i) => i.product_id).filter(Boolean))
+            return items.map((item) => {
+              const prod = item.product_id ? getProduct(item.product_id) : undefined
+              return (
+                <div key={item.id} className="grid grid-cols-[1fr_72px_28px] gap-2 px-3 py-2 items-center border-b border-[var(--border-default)] last:border-b-0">
+                  <select
+                    value={item.product_id}
+                    onChange={(e) => updateItem(item.id, { product_id: e.target.value })}
+                    className="w-full px-2 py-1.5 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+                  >
+                    <option value="">Seleccionar producto</option>
+                    {products
+                      .filter((p) => p.stock > 0 && (p.id === item.product_id || !selectedIds.has(p.id)))
+                      .map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} ({p.sku}) — Stock: {p.stock}
+                        </option>
+                      ))}
+                  </select>
+                  <input
+                    type="number"
+                    min={1}
+                    max={prod?.stock || 1}
+                    value={item.quantity}
+                    onChange={(e) => updateItem(item.id, { quantity: e.target.value === '' ? '' : Number(e.target.value) })}
+                    placeholder="Cant."
+                    className="w-full px-2 py-1.5 text-sm text-center rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
                 <button
                   type="button"
                   onClick={() => removeItem(item.id)}
@@ -199,7 +201,8 @@ export function WithdrawalModal({ productId, onClose, onSuccess }: WithdrawalMod
                 </button>
               </div>
             )
-          })}
+          })
+          })()}
         </div>
 
         {totalValue > 0 && (
