@@ -22,6 +22,8 @@ import {
   BarChart3,
   FileSpreadsheet,
 } from 'lucide-react'
+import jsPDF from 'jspdf'
+import 'jspdf-autotable'
 
 export default function InventoryReportsPage() {
   const supabase = createClient()
@@ -173,8 +175,6 @@ export default function InventoryReportsPage() {
   const generatePdf = async () => {
     setGeneratingPdf(true)
     try {
-      const { default: jsPDF } = await import('jspdf')
-      await import('jspdf-autotable')
       const doc = new jsPDF()
 
       // Cover page

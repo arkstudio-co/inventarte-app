@@ -33,11 +33,16 @@ interface Movement {
   productSku: string
   type: 'entry' | 'withdrawal'
   quantity: number
+  value: number
   balance: number
   reference: string
   observations: string | null
   documentType: string
   paymentStatus: string | null
+}
+
+function formatCurrency(n: number) {
+  return '$' + n.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
 }
 
 export default function InventoryMovementsPage() {
@@ -70,8 +75,8 @@ export default function InventoryMovementsPage() {
 
     const [productsRes, entriesRes, withdrawalsRes] = await Promise.all([
       supabase.from('products').select('id, name, sku, stock').eq('is_active', true).order('name'),
-      supabase.from('stock_entries').select('*, products!inner(name, sku)').order('created_at', { ascending: false }),
-      supabase.from('stock_withdrawals').select('*, products!inner(name, sku)').order('withdrawal_date', { ascending: false }),
+      supabase.from('stock_entries').select('*, products!inner(name, sku, cost)').order('created_at', { ascending: false }),
+      supabase.from('stock_withdrawals').select('*, products!inner(name, sku, price)').order('withdrawal_date', { ascending: false }),
     ])
 
     if (productsRes.error) { setError(productsRes.error.message); setIsLoading(false); return }
@@ -91,7 +96,7 @@ export default function InventoryMovementsPage() {
       mergedMovements.push({
         id: `entry-${e.id}`, date: new Date(e.created_at), dateStr: e.created_at,
         productId: e.product_id, productName: prod.name, productSku: prod.sku,
-        type: 'entry', quantity: e.quantity, balance: 0,
+        type: 'entry', quantity: e.quantity, value: e.quantity * (e.products?.cost || 0), balance: 0,
         reference: 'Proveedor', observations: e.observations,
         documentType: 'Compra', paymentStatus: e.payment_status,
       })
@@ -103,7 +108,7 @@ export default function InventoryMovementsPage() {
       mergedMovements.push({
         id: `withdrawal-${w.id}`, date: new Date(w.withdrawal_date), dateStr: w.withdrawal_date,
         productId: w.product_id, productName: prod.name, productSku: prod.sku,
-        type: 'withdrawal', quantity: w.quantity, balance: 0,
+        type: 'withdrawal', quantity: w.quantity, value: w.quantity * (w.products?.price || 0), balance: 0,
         reference: w.person_name, observations: w.observations,
         documentType: w.delivery_type === 'paid' ? 'Venta' : 'Retiro', paymentStatus: w.delivery_type,
       })
@@ -166,7 +171,9 @@ export default function InventoryMovementsPage() {
     })
     const entries = periodMovements.filter((m) => m.type === 'entry').reduce((s, m) => s + m.quantity, 0)
     const withdrawals = periodMovements.filter((m) => m.type === 'withdrawal').reduce((s, m) => s + m.quantity, 0)
-    return { entries, withdrawals, total: periodMovements.length }
+    const entriesValue = periodMovements.filter((m) => m.type === 'entry').reduce((s, m) => s + m.value, 0)
+    const withdrawalsValue = periodMovements.filter((m) => m.type === 'withdrawal').reduce((s, m) => s + m.value, 0)
+    return { entries, withdrawals, total: periodMovements.length, entriesValue, withdrawalsValue }
   }, [movements, filter])
 
   const clearFilters = () => {
@@ -236,6 +243,7 @@ export default function InventoryMovementsPage() {
             <span className="text-xs font-medium uppercase tracking-wide">Entradas</span>
           </div>
           <p className="text-xl font-semibold text-[var(--success)]">+{stats.entries}</p>
+          <p className="text-xs text-[var(--success)]/70 mt-0.5">{formatCurrency(stats.entriesValue)}</p>
         </div>
         <div className="rounded-[var(--radius-md)] bg-[var(--surface-1)] border border-[var(--border-default)] p-4">
           <div className="flex items-center gap-2 text-[var(--ink-tertiary)] mb-1">
@@ -243,6 +251,7 @@ export default function InventoryMovementsPage() {
             <span className="text-xs font-medium uppercase tracking-wide">Salidas</span>
           </div>
           <p className="text-xl font-semibold text-[var(--danger)]">-{stats.withdrawals}</p>
+          <p className="text-xs text-[var(--danger)]/70 mt-0.5">{formatCurrency(stats.withdrawalsValue)}</p>
         </div>
         <div className="rounded-[var(--radius-md)] bg-[var(--surface-1)] border border-[var(--border-default)] p-4">
           <div className="flex items-center gap-2 text-[var(--ink-tertiary)] mb-1">
@@ -251,6 +260,9 @@ export default function InventoryMovementsPage() {
           </div>
           <p className={`text-xl font-semibold ${stats.entries - stats.withdrawals >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
             {stats.entries - stats.withdrawals >= 0 ? '+' : ''}{stats.entries - stats.withdrawals}
+          </p>
+          <p className={`text-xs mt-0.5 ${stats.entriesValue - stats.withdrawalsValue >= 0 ? 'text-[var(--success)]/70' : 'text-[var(--danger)]/70'}`}>
+            {formatCurrency(Math.abs(stats.entriesValue - stats.withdrawalsValue))}
           </p>
         </div>
       </div>
@@ -311,6 +323,9 @@ export default function InventoryMovementsPage() {
                   <th className="text-right px-4 py-3 text-xs font-semibold text-[var(--ink-tertiary)] uppercase tracking-wider w-[80px]">
                     <ArrowUpDown size={12} className="inline mr-1" />Saldo
                   </th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-[var(--ink-tertiary)] uppercase tracking-wider w-[100px]">
+                    Valor
+                  </th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-[var(--ink-tertiary)] uppercase tracking-wider w-[160px]">Referencia</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-[var(--ink-tertiary)] uppercase tracking-wider hidden lg:table-cell">Obs.</th>
                   <th className="px-4 py-3 w-[40px]" />
@@ -350,6 +365,11 @@ export default function InventoryMovementsPage() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <span className={`text-sm font-bold font-mono ${m.balance <= 0 ? 'text-[var(--danger)]' : 'text-[var(--ink)]'}`}>{m.balance}</span>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <span className={`text-sm font-semibold ${m.type === 'entry' ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
+                        {m.type === 'entry' ? '' : '-'}{formatCurrency(m.value)}
+                      </span>
                     </td>
                     <td className="px-4 py-3 text-sm text-[var(--ink-secondary)] max-w-[160px] truncate">{m.reference}</td>
                     <td className="px-4 py-3 text-sm text-[var(--ink-muted)] max-w-[200px] truncate hidden lg:table-cell">{m.observations || <span className="italic">&mdash;</span>}</td>
