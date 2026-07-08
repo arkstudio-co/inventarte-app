@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { createServerSupabase } from '@/lib/supabase/server'
-import { sendWithdrawalEmail } from '@/lib/email/resend'
 import { getServerCompanyId } from '@/lib/supabase/company'
 
 export async function POST(request: Request) {
@@ -15,12 +14,15 @@ export async function POST(request: Request) {
   const { data: withdrawal, error } = await supabase.from('stock_withdrawals').insert({
     product_id: body.product_id,
     quantity: body.quantity,
-    person_name: body.person_name,
-    person_email: body.person_email,
-    delivery_type: body.delivery_type,
-    pending_amount: body.delivery_type === 'pending' ? body.pending_amount : null,
-    observations: body.delivery_type === 'pending' ? body.observations : null,
-    seller_id: body.seller_id || null,
+    person_name: null,
+    person_email: null,
+    delivery_type: 'paid',
+    observations: body.reason === 'otro'
+      ? `[${body.reason}] ${body.observations || ''}`
+      : `[${body.reason}] ${body.observations || ''}`,
+    seller_id: null,
+    reason: body.reason,
+    supplier_id: body.supplier_id || null,
     withdrawal_date: new Date().toISOString(),
     company_id: companyId,
     created_by: user.id,
@@ -36,18 +38,6 @@ export async function POST(request: Request) {
   if (stockError) {
     await supabase.from('stock_withdrawals').delete().eq('id', withdrawal[0].id)
     return NextResponse.json({ error: stockError.message }, { status: 500 })
-  }
-
-  const { data: product } = await supabase.from('products').select('name').eq('id', body.product_id).single()
-
-  if (product && process.env.RESEND_API_KEY && process.env.RESEND_API_KEY !== 'your_resend_api_key_here') {
-    sendWithdrawalEmail({
-      to: body.person_email,
-      productName: product.name,
-      quantity: body.quantity,
-      pendingAmount: body.delivery_type === 'pending' ? body.pending_amount : null,
-      observations: body.delivery_type === 'pending' ? body.observations : null,
-    }).catch(() => {})
   }
 
   return NextResponse.json(withdrawal)

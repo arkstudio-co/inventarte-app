@@ -2,22 +2,21 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { withdrawalSchema, type WithdrawalFormData } from '@/lib/validations/withdrawal'
+import { withdrawalSchema } from '@/lib/validations/withdrawal'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Modal } from '@/components/ui/Modal'
-import type { Product, Seller } from '@/types/database'
+import type { Product, Supplier } from '@/types/database'
 
-interface LocalFormData {
-  product_id: string
-  quantity: number | ''
-  person_name: string
-  person_email: string
-  delivery_type: 'paid' | 'pending'
-  pending_amount: number | '' | undefined
-  observations: string
-}
+const REASONS = [
+  { value: '', label: 'Seleccionar motivo' },
+  { value: 'defectuoso', label: 'Producto defectuoso' },
+  { value: 'error_inventario', label: 'Error de inventario' },
+  { value: 'vencido', label: 'Producto vencido' },
+  { value: 'devolucion_proveedor', label: 'Devolución al proveedor' },
+  { value: 'otro', label: 'Otro' },
+]
 
 interface WithdrawalModalProps {
   productId: string
@@ -29,34 +28,26 @@ export function WithdrawalModal({ productId, onClose, onSuccess }: WithdrawalMod
   const supabase = createClient()
   const [product, setProduct] = useState<Product | null>(null)
   const [products, setProducts] = useState<Product[]>([])
-  const [sellers, setSellers] = useState<Seller[]>([])
+  const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [selectedProductId, setSelectedProductId] = useState(productId || '')
 
-  const [form, setForm] = useState<LocalFormData>({
-    product_id: productId || '',
-    quantity: 1,
-    person_name: '',
-    person_email: '',
-    delivery_type: 'paid',
-    pending_amount: undefined,
-    observations: '',
-  })
-  const [sellerId, setSellerId] = useState('')
+  const [quantity, setQuantity] = useState<number | ''>(1)
+  const [reason, setReason] = useState('')
+  const [supplierId, setSupplierId] = useState('')
+  const [observations, setObservations] = useState('')
 
   useEffect(() => {
-    const sellersPromise = supabase.from('sellers').select('*').eq('is_active', true).order('name')
-
     const load = async () => {
-      const [sellersRes, productsRes] = await Promise.all([
-        sellersPromise,
+      const [suppliersRes, productsRes] = await Promise.all([
+        supabase.from('suppliers').select('*').order('name'),
         productId
           ? supabase.from('products').select('*').eq('id', productId).single()
           : supabase.from('products').select('*').eq('is_active', true).order('name'),
       ])
 
-      if (sellersRes.data) setSellers(sellersRes.data)
+      if (suppliersRes.data) setSuppliers(suppliersRes.data)
       if (productId && productsRes.data) {
         setProduct(productsRes.data as Product)
       } else if (!productId && productsRes.data) {
@@ -71,16 +62,10 @@ export function WithdrawalModal({ productId, onClose, onSuccess }: WithdrawalMod
     setSelectedProductId(id)
     const prod = products.find((p) => p.id === id)
     if (prod) setProduct(prod)
-    setForm({ ...form, product_id: id })
   }
 
-  const handleSellerChange = (id: string) => {
-    setSellerId(id)
-    const seller = sellers.find((s) => s.id === id)
-    if (seller) {
-      setForm({ ...form, person_name: seller.name, person_email: seller.email || '' })
-    }
-  }
+  const qty = quantity === '' ? 0 : quantity
+  const withdrawalValue = product && qty > 0 ? qty * product.cost : 0
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -91,15 +76,18 @@ export function WithdrawalModal({ productId, onClose, onSuccess }: WithdrawalMod
       return
     }
 
-    const quantity = form.quantity === '' ? 0 : form.quantity
-    const pending_amount = form.pending_amount === '' ? undefined : form.pending_amount
-
-    if (product && quantity > product.stock) {
+    if (product && qty > product.stock) {
       setError(`Solo hay ${product.stock} unidades disponibles`)
       return
     }
 
-    const result = withdrawalSchema.safeParse({ ...form, quantity, pending_amount })
+    const result = withdrawalSchema.safeParse({
+      product_id: selectedProductId || productId,
+      quantity: qty,
+      reason,
+      supplier_id: reason === 'devolucion_proveedor' ? supplierId || undefined : undefined,
+      observations,
+    })
     if (!result.success) {
       setError(result.error.issues[0].message)
       return
@@ -110,16 +98,7 @@ export function WithdrawalModal({ productId, onClose, onSuccess }: WithdrawalMod
     const res = await fetch('/api/withdrawals', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        product_id: form.product_id,
-        quantity,
-        person_name: form.person_name,
-        person_email: form.person_email,
-        delivery_type: form.delivery_type,
-        pending_amount: form.delivery_type === 'pending' ? pending_amount : null,
-        observations: form.delivery_type === 'pending' ? form.observations : null,
-        seller_id: sellerId || null,
-      }),
+      body: JSON.stringify(result.data),
     })
 
     if (!res.ok) {
@@ -161,75 +140,52 @@ export function WithdrawalModal({ productId, onClose, onSuccess }: WithdrawalMod
           type="number"
           min={1}
           max={product?.stock || 1}
-          value={form.quantity}
-          onChange={(e) => setForm({ ...form, quantity: e.target.value === '' ? '' : Number(e.target.value) })}
+          value={quantity}
+          onChange={(e) => setQuantity(e.target.value === '' ? '' : Number(e.target.value))}
           required
         />
 
-        {product && form.quantity !== '' && form.quantity > product.stock && (
+        {product && qty > product.stock && (
           <p className="text-xs text-[var(--danger)]">La cantidad supera el stock disponible ({product.stock} uds)</p>
         )}
 
-        {sellers.length > 0 && (
+        {product && qty > 0 && qty <= product.stock && (
+          <div className="rounded-[var(--radius-sm)] bg-[var(--primary-light)] border border-[var(--primary)]/20 p-3">
+            <p className="text-xs text-[var(--ink-tertiary)] uppercase tracking-wide font-semibold">Valor del retiro</p>
+            <p className="text-sm font-bold text-[var(--primary)]">{qty} × ${product.cost?.toLocaleString('es-CO') || '0'} = ${withdrawalValue.toLocaleString('es-CO')}</p>
+          </div>
+        )}
+
+        <Select
+          id="reason"
+          label="Motivo del retiro"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          options={REASONS.map((r) => ({ value: r.value, label: r.label }))}
+          placeholder="Seleccionar motivo"
+        />
+
+        {reason === 'devolucion_proveedor' && (
           <Select
-            id="seller"
-            label="Colaborador (opcional)"
-            value={sellerId}
-            onChange={(e) => handleSellerChange(e.target.value)}
-            options={sellers.map((s) => ({ value: s.id, label: s.name }))}
-            placeholder="Seleccionar colaborador"
+            id="supplier"
+            label="Proveedor"
+            value={supplierId}
+            onChange={(e) => setSupplierId(e.target.value)}
+            options={suppliers.map((s) => ({ value: s.id, label: s.name }))}
+            placeholder="Seleccionar proveedor"
           />
         )}
 
-        <Input
-          id="person_name"
-          label="Nombre de la persona"
-          value={form.person_name}
-          onChange={(e) => setForm({ ...form, person_name: e.target.value })}
-          required
-        />
-        <Input
-          id="person_email"
-          label="Correo electrónico"
-          type="email"
-          value={form.person_email}
-          onChange={(e) => setForm({ ...form, person_email: e.target.value })}
-          required
-        />
-
-        <Select
-          id="delivery_type"
-          label="Tipo de entrega"
-          value={form.delivery_type}
-          onChange={(e) => setForm({ ...form, delivery_type: e.target.value as 'paid' | 'pending' })}
-          options={[
-            { value: 'paid', label: 'Producto pagado' },
-            { value: 'pending', label: 'Producto por pagar' },
-          ]}
-        />
-
-        {form.delivery_type === 'pending' && (
-          <>
-            <Input
-              id="pending_amount"
-              label="Valor pendiente"
-              type="number"
-              step="0.01"
-              value={form.pending_amount || ''}
-              onChange={(e) => setForm({ ...form, pending_amount: e.target.value === '' ? '' : Number(e.target.value) })}
-            />
-            <div className="space-y-1.5">
-              <label htmlFor="observations" className="text-sm font-medium text-[var(--ink-secondary)]">Observaciones</label>
-              <textarea
-                id="observations"
-                className="w-full px-3 py-2 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors resize-none"
-                rows={3}
-                value={form.observations || ''}
-                onChange={(e) => setForm({ ...form, observations: e.target.value })}
-              />
-            </div>
-          </>
-        )}
+        <div className="space-y-1.5">
+          <label htmlFor="observations" className="text-sm font-medium text-[var(--ink-secondary)]">Observaciones</label>
+          <textarea
+            id="observations"
+            className="w-full px-3 py-2 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors resize-none"
+            rows={3}
+            value={observations}
+            onChange={(e) => setObservations(e.target.value)}
+          />
+        </div>
 
         {error && (
           <div className="text-sm text-[var(--danger)] bg-[var(--danger-light)] px-3 py-2 rounded-[var(--radius-sm)] border border-[var(--danger)]/20">

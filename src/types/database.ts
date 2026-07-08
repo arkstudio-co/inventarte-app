@@ -140,8 +140,8 @@ export interface StockWithdrawal {
   id: string
   product_id: string
   quantity: number
-  person_name: string
-  person_email: string
+  person_name: string | null
+  person_email: string | null
   delivery_type: 'paid' | 'pending'
   pending_amount: number | null
   observations: string | null
@@ -150,7 +150,10 @@ export interface StockWithdrawal {
   company_id: string
   created_at: string
   seller_id: string | null
+  reason: string
+  supplier_id: string | null
   products?: Product | null
+  suppliers?: Supplier | null
 }
 
 export interface LandingProduct {
