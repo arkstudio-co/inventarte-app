@@ -91,9 +91,16 @@ function WalletShell({ children }: { children: ReactNode }) {
               ))}
             </select>
           </div>
-          <Input label="Monto" type="number" value={apForm.amount} onChange={(e) => setApForm({ ...apForm, amount: e.target.value === '' ? '' : Number(e.target.value) })} required min={1} />
+          <Input label="Monto total" type="number" value={apForm.amount} onChange={(e) => setApForm({ ...apForm, amount: e.target.value === '' ? '' : Number(e.target.value) })} required min={1} />
           <Input label="Descripción" value={apForm.description} onChange={(e) => setApForm({ ...apForm, description: e.target.value })} />
-          <Input label="Fecha de vencimiento" type="date" value={apForm.due_date} onChange={(e) => setApForm({ ...apForm, due_date: e.target.value })} />
+          <Input label="Número de cuotas" type="number" value={apForm.installments} onChange={(e) => setApForm({ ...apForm, installments: Math.max(1, Number(e.target.value)) })} min={1} />
+          {apForm.installments > 1 && (
+            <div className="text-sm text-[var(--ink-secondary)] bg-[var(--surface-0)] px-3 py-2 rounded-[var(--radius-sm)] border border-[var(--border-subtle)]">
+              Valor por cuota: <strong className="text-[var(--ink)]">${(Number(apForm.amount) / apForm.installments).toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</strong>
+              {' · '}{apForm.installments} cuotas
+            </div>
+          )}
+          <Input label="Fecha de primera cuota" type="date" value={apForm.due_date} onChange={(e) => setApForm({ ...apForm, due_date: e.target.value })} />
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="ghost" onClick={() => setApModalOpen(false)}>Cancelar</Button>
             <Button type="submit">Crear Deuda</Button>

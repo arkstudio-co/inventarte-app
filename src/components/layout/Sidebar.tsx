@@ -41,7 +41,6 @@ const inventorySubItems: SubNavItem[] = [
   { href: '/inventory', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/inventory/movements', label: 'Movimientos', icon: TrendingUp },
   { href: '/inventory/purchase-orders', label: 'Órdenes de Compra', icon: Package },
-  { href: '/inventory/adjustments', label: 'Ajustes', icon: Scale },
   { href: '/inventory/reports', label: 'Reportes', icon: FileText },
 ]
 

@@ -7,10 +7,12 @@ import { Building2, Plus, Trash2, CheckCircle } from 'lucide-react'
 
 export default function GastosPage() {
   const {
-    expenseTotals, adminExpenses, adminExpenseTotals,
-    ap, apTotal, apShowAll, setApShowAll, adminShowAll, setAdminShowAll,
+    expenseTotals, fixedExpenses, variableExpenses,
+    fixedExpenseTotals, variableExpenseTotals,
+    ap, apTotal, apShowAll, setApShowAll,
+    fixedShowAll, setFixedShowAll, variableShowAll, setVariableShowAll,
     setApModalOpen, setAdminModalOpen,
-    markApAsPaid, deleteAp, deleteAdmin, formatCurrency, gastosTotal,
+    markApAsPaid, markFixedAsPaid, deleteAp, deleteAdmin, formatCurrency, gastosTotal,
   } = useWallet()
 
   return (
@@ -27,8 +29,12 @@ export default function GastosPage() {
           <span className="font-semibold text-[var(--danger)]">{formatCurrency(expenseTotals)}</span>
         </div>
         <div className="flex items-center justify-between text-sm">
-          <span className="text-[var(--ink-secondary)]">Gastos Administrativos</span>
-          <span className="font-semibold text-[var(--warning)]">{formatCurrency(adminExpenseTotals)}</span>
+          <span className="text-[var(--ink-secondary)]">Gastos Fijos</span>
+          <span className="font-semibold text-[var(--accent)]">{formatCurrency(fixedExpenseTotals)}</span>
+        </div>
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-[var(--ink-secondary)]">Gastos Variables</span>
+          <span className="font-semibold text-[var(--warning)]">{formatCurrency(variableExpenseTotals)}</span>
         </div>
         <div className="flex items-center justify-between text-sm">
           <span className="text-[var(--ink-secondary)]">Deuda</span>
@@ -40,26 +46,68 @@ export default function GastosPage() {
         </div>
       </div>
 
-      {/* Gastos Administrativos detail */}
-      {adminExpenses.length > 0 && (
+      {/* Gastos Fijos detail */}
+      {fixedExpenses.length > 0 && (
         <div className="pt-3">
-          <p className="text-xs font-semibold text-[var(--ink-tertiary)] uppercase tracking-wide mb-2">Gastos Administrativos</p>
+          <p className="text-xs font-semibold text-[var(--ink-tertiary)] uppercase tracking-wide mb-2">Gastos Fijos</p>
           <div className="divide-y divide-[var(--border-subtle)]">
-            {(adminShowAll ? adminExpenses : adminExpenses.slice(0, 2)).map((o: any) => (
+            {(fixedShowAll ? fixedExpenses : fixedExpenses.slice(0, 2)).map((o: any) => (
               <div key={o.id} className="py-2 flex items-center justify-between gap-2">
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-[var(--ink)] truncate">
                     {o.description}
-                    <span className={`ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-                      o.type === 'fixed'
-                        ? 'bg-[var(--accent)]/10 text-[var(--accent)]'
-                        : 'bg-[var(--accent)]/10 text-[var(--accent)]'
-                    }`}>
-                      {o.type === 'fixed' ? 'Fijo' : 'Variable'}
+                    <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-[var(--accent)]/10 text-[var(--accent)]">
+                      Fijo
                     </span>
                   </p>
                   <p className="text-xs text-[var(--ink-tertiary)]">
-                    {o.category || '—'} • {o.type === 'fixed' ? 'Recurrente' : (o.expense_date ? new Date(o.expense_date).toLocaleDateString('es-CO') : '—')}
+                    {o.category || '—'} • Recurrente
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <p className="text-sm font-bold text-[var(--warning)]">{formatCurrency(o.amount)}</p>
+                  <button
+                    onClick={() => markFixedAsPaid(o.id)}
+                    className="p-1 text-[var(--ink-tertiary)] hover:text-[var(--success)] rounded-[var(--radius-sm)] cursor-pointer"
+                    title="Marcar como pagado"
+                  >
+                    <CheckCircle size={14} />
+                  </button>
+                  <button
+                    onClick={() => deleteAdmin(o.id)}
+                    className="p-1 text-[var(--ink-tertiary)] hover:text-[var(--danger)] rounded-[var(--radius-sm)] cursor-pointer"
+                    title="Eliminar"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+          {fixedExpenses.length > 2 && (
+            <button
+              onClick={() => setFixedShowAll(!fixedShowAll)}
+              className="w-full mt-2 py-1 text-xs text-[var(--accent)] hover:text-[var(--accent-hover)] hover:underline cursor-pointer text-center"
+            >
+              {fixedShowAll ? 'Ver menos' : `Ver más (${fixedExpenses.length - 2})`}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Gastos Variables detail */}
+      {variableExpenses.length > 0 && (
+        <div className="pt-3">
+          <p className="text-xs font-semibold text-[var(--ink-tertiary)] uppercase tracking-wide mb-2">Gastos Variables</p>
+          <div className="divide-y divide-[var(--border-subtle)]">
+            {(variableShowAll ? variableExpenses : variableExpenses.slice(0, 2)).map((o: any) => (
+              <div key={o.id} className="py-2 flex items-center justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-[var(--ink)] truncate">
+                    {o.description}
+                  </p>
+                  <p className="text-xs text-[var(--ink-tertiary)]">
+                    {o.category || '—'} • {o.expense_date ? new Date(o.expense_date).toLocaleDateString('es-CO') : '—'}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
@@ -75,6 +123,14 @@ export default function GastosPage() {
               </div>
             ))}
           </div>
+          {variableExpenses.length > 2 && (
+            <button
+              onClick={() => setVariableShowAll(!variableShowAll)}
+              className="w-full mt-2 py-1 text-xs text-[var(--accent)] hover:text-[var(--accent-hover)] hover:underline cursor-pointer text-center"
+            >
+              {variableShowAll ? 'Ver menos' : `Ver más (${variableExpenses.length - 2})`}
+            </button>
+          )}
         </div>
       )}
 
@@ -86,7 +142,14 @@ export default function GastosPage() {
             {(apShowAll ? ap : ap.slice(0, 2)).map((a) => (
               <div key={a.id} className="py-2 flex items-center justify-between gap-2">
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-[var(--ink)] truncate">{a.suppliers?.name || 'Proveedor'}</p>
+                  <p className="text-sm font-medium text-[var(--ink)] truncate">
+                    {a.suppliers?.name || 'Proveedor'}
+                    {a.installment_number && (
+                      <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-[var(--accent)]/10 text-[var(--accent)]">
+                        Cuota {a.installment_number}/{a.total_installments}
+                      </span>
+                    )}
+                  </p>
                   <p className="text-xs text-[var(--ink-tertiary)]">
                     {a.description || '—'}
                     {a.due_date && ` • Vence: ${new Date(a.due_date).toLocaleDateString('es-CO')}`}
@@ -102,7 +165,7 @@ export default function GastosPage() {
                     <CheckCircle size={14} />
                   </button>
                   <button
-                    onClick={() => deleteAp(a.id)}
+                    onClick={() => deleteAp(a.id, a.installment_group_id)}
                     className="p-1 text-[var(--ink-tertiary)] hover:text-[var(--danger)] rounded-[var(--radius-sm)] cursor-pointer"
                     title="Eliminar"
                   >
@@ -112,20 +175,18 @@ export default function GastosPage() {
               </div>
             ))}
           </div>
+          {ap.length > 2 && (
+            <button
+              onClick={() => setApShowAll(!apShowAll)}
+              className="w-full mt-2 py-1 text-xs text-[var(--accent)] hover:text-[var(--accent-hover)] hover:underline cursor-pointer text-center"
+            >
+              {apShowAll ? 'Ver menos' : `Ver más (${ap.length - 2})`}
+            </button>
+          )}
         </div>
       )}
 
-      {/* Show more toggle */}
-      {(adminExpenses.length > 2 || ap.length > 2) && (
-        <button
-          onClick={() => setAdminShowAll(!adminShowAll)}
-          className="w-full mt-2 py-2 text-xs text-[var(--accent)] hover:text-[var(--accent-hover)] hover:underline cursor-pointer text-center"
-        >
-          {adminShowAll ? 'Ver menos' : 'Ver más'}
-        </button>
-      )}
-
-      {adminExpenses.length === 0 && ap.length === 0 && (
+      {fixedExpenses.length === 0 && variableExpenses.length === 0 && ap.length === 0 && (
         <p className="text-sm text-[var(--ink-tertiary)] py-4 text-center">No hay gastos registrados</p>
       )}
     </SectionCard>

@@ -18,13 +18,17 @@ interface WalletContextType {
   inventoryValue: number
   adminExpenses: AdministrativeExpense[]
   adminExpenseTotals: number
+  fixedExpenses: AdministrativeExpense[]
+  variableExpenses: AdministrativeExpense[]
+  fixedExpenseTotals: number
+  variableExpenseTotals: number
   adminModalOpen: boolean
   setAdminModalOpen: (v: boolean) => void
   adminForm: { description: string; amount: number | ''; category: string; type: 'fixed' | 'variable'; expense_date: string; notes: string }
   setAdminForm: (v: any) => void
   apModalOpen: boolean
   setApModalOpen: (v: boolean) => void
-  apForm: { supplier_id: string; amount: number | ''; description: string; due_date: string }
+  apForm: { supplier_id: string; amount: number | ''; description: string; due_date: string; installments: number }
   setApForm: (v: any) => void
   otherIncome: OtherIncome[]
   otherIncomeTotals: number
@@ -39,14 +43,17 @@ interface WalletContextType {
   apTotal: number
   apShowAll: boolean
   setApShowAll: React.Dispatch<React.SetStateAction<boolean>>
-  adminShowAll: boolean
-  setAdminShowAll: React.Dispatch<React.SetStateAction<boolean>>
+  fixedShowAll: boolean
+  setFixedShowAll: React.Dispatch<React.SetStateAction<boolean>>
+  variableShowAll: boolean
+  setVariableShowAll: React.Dispatch<React.SetStateAction<boolean>>
   netArTotals: number
   gastosTotal: number
   balance: number
   handleCreateAp: (e: React.FormEvent) => Promise<void>
   markApAsPaid: (id: string) => Promise<void>
-  deleteAp: (id: string) => Promise<void>
+  markFixedAsPaid: (id: string) => Promise<void>
+  deleteAp: (id: string, groupId?: string | null) => Promise<void>
   handleCreateAdmin: (e: React.FormEvent) => Promise<void>
   deleteAdmin: (id: string) => Promise<void>
   handleCreateOtherIncome: (e: React.FormEvent) => Promise<void>
@@ -89,7 +96,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [adminForm, setAdminForm] = useState<{ description: string; amount: number | ''; category: string; type: 'fixed' | 'variable'; expense_date: string; notes: string }>({ description: '', amount: '', category: '', type: 'variable', expense_date: '', notes: '' })
 
   const [apModalOpen, setApModalOpen] = useState(false)
-  const [apForm, setApForm] = useState<{ supplier_id: string; amount: number | ''; description: string; due_date: string }>({ supplier_id: '', amount: '', description: '', due_date: '' })
+  const [apForm, setApForm] = useState<{ supplier_id: string; amount: number | ''; description: string; due_date: string; installments: number }>({ supplier_id: '', amount: '', description: '', due_date: '', installments: 1 })
 
   const [otherIncome, setOtherIncome] = useState<OtherIncome[]>([])
   const [otherIncomeTotals, setOtherIncomeTotals] = useState(0)
@@ -158,6 +165,17 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => { fetchAll() }, [filter])
 
+  const { startDate: periodStart } = computeDateRange(filter)
+  const fixedExpenses = adminExpenses.filter((e) => {
+    if (e.type !== 'fixed') return false
+    if (!periodStart) return true
+    if (!e.last_paid_date) return true
+    return new Date(e.last_paid_date) < periodStart
+  })
+  const variableExpenses = adminExpenses.filter((e) => e.type === 'variable')
+  const fixedExpenseTotals = fixedExpenses.reduce((s, e) => s + e.amount, 0)
+  const variableExpenseTotals = variableExpenses.reduce((s, e) => s + e.amount, 0)
+
   const apTotal = ap.reduce((sum, a) => sum + a.amount, 0)
   const [apShowAll, setApShowAll] = useState(false)
   const netArTotals = Math.max(0, arTotals - balancePayments)
@@ -167,16 +185,34 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const handleCreateAp = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!companyId) return
-    const payload: any = {
-      company_id: companyId,
-      amount: apForm.amount === '' ? 0 : apForm.amount,
-      description: apForm.description || null,
-      due_date: apForm.due_date || null,
-    }
-    if (apForm.supplier_id) payload.supplier_id = apForm.supplier_id
-    await supabase.from('accounts_payable').insert(payload)
+
+    const totalAmount = apForm.amount === '' ? 0 : apForm.amount
+    const numInstallments = apForm.installments || 1
+    const installmentAmount = totalAmount / numInstallments
+    const groupId = crypto.randomUUID()
+
+    const records = Array.from({ length: numInstallments }, (_, i) => {
+      const due = apForm.due_date
+        ? new Date(apForm.due_date)
+        : new Date()
+      if (i > 0) due.setMonth(due.getMonth() + i)
+
+      const record: any = {
+        company_id: companyId,
+        amount: installmentAmount,
+        description: apForm.description || null,
+        due_date: due.toISOString(),
+        installment_number: numInstallments > 1 ? i + 1 : null,
+        total_installments: numInstallments > 1 ? numInstallments : null,
+        installment_group_id: numInstallments > 1 ? groupId : null,
+      }
+      if (apForm.supplier_id) record.supplier_id = apForm.supplier_id
+      return record
+    })
+
+    await supabase.from('accounts_payable').insert(records)
     setApModalOpen(false)
-    setApForm({ supplier_id: '', amount: '', description: '', due_date: '' })
+    setApForm({ supplier_id: '', amount: '', description: '', due_date: '', installments: 1 })
     fetchAll()
   }
 
@@ -185,13 +221,24 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     fetchAll()
   }
 
-  const deleteAp = async (id: string) => {
-    if (!confirm('¿Eliminar esta deuda?')) return
-    await supabase.from('accounts_payable').delete().eq('id', id)
+  const markFixedAsPaid = async (id: string) => {
+    await supabase.from('administrative_expenses').update({ last_paid_date: new Date().toISOString() }).eq('id', id)
     fetchAll()
   }
 
-  const [adminShowAll, setAdminShowAll] = useState(false)
+  const deleteAp = async (id: string, groupId?: string | null) => {
+    if (groupId) {
+      if (!confirm('¿Eliminar todas las cuotas de esta deuda?')) return
+      await supabase.from('accounts_payable').delete().eq('installment_group_id', groupId)
+    } else {
+      if (!confirm('¿Eliminar esta deuda?')) return
+      await supabase.from('accounts_payable').delete().eq('id', id)
+    }
+    fetchAll()
+  }
+
+  const [fixedShowAll, setFixedShowAll] = useState(false)
+  const [variableShowAll, setVariableShowAll] = useState(false)
   const handleCreateAdmin = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!companyId) return
@@ -247,14 +294,14 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     <WalletContext.Provider
       value={{
         income, expenses, ar, ap, suppliers, filter, setFilter, inventoryValue,
-        adminExpenses, adminExpenseTotals,
+        adminExpenses, adminExpenseTotals, fixedExpenses, variableExpenses, fixedExpenseTotals, variableExpenseTotals,
         adminModalOpen, setAdminModalOpen, adminForm, setAdminForm,
         apModalOpen, setApModalOpen, apForm, setApForm,
         otherIncome, otherIncomeTotals, otherIncomeModalOpen, setOtherIncomeModalOpen, otherIncomeForm, setOtherIncomeForm,
         incomeTotals, expenseTotals, arTotals,
-        paymentsTotal, apTotal, apShowAll, setApShowAll, adminShowAll, setAdminShowAll,
+        paymentsTotal, apTotal, apShowAll, setApShowAll, fixedShowAll, setFixedShowAll, variableShowAll, setVariableShowAll,
         netArTotals, gastosTotal, balance,
-        handleCreateAp, markApAsPaid, deleteAp,
+        handleCreateAp, markApAsPaid, markFixedAsPaid, deleteAp,
         handleCreateAdmin, deleteAdmin,
         handleCreateOtherIncome, deleteOtherIncome,
         formatCurrency,

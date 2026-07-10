@@ -57,7 +57,7 @@ export default function ConceptoGastosPage() {
   })
 
   const [showApModal, setShowApModal] = useState(false)
-  const [apForm, setApForm] = useState<{ supplier_id: string; amount: number | ''; description: string; due_date: string }>({ supplier_id: '', amount: '', description: '', due_date: '' })
+  const [apForm, setApForm] = useState<{ supplier_id: string; amount: number | ''; description: string; due_date: string; installments: number }>({ supplier_id: '', amount: '', description: '', due_date: '', installments: 1 })
   const [apError, setApError] = useState('')
 
   const [error, setError] = useState('')
@@ -161,17 +161,35 @@ export default function ConceptoGastosPage() {
     e.preventDefault()
     if (!companyId) return
     setApError('')
-    const payload: any = {
-      company_id: companyId,
-      amount: apForm.amount === '' ? 0 : apForm.amount,
-      description: apForm.description || null,
-      due_date: apForm.due_date || null,
-    }
-    if (apForm.supplier_id) payload.supplier_id = apForm.supplier_id
-    const { error: insertError } = await supabase.from('accounts_payable').insert(payload)
+
+    const totalAmount = apForm.amount === '' ? 0 : apForm.amount
+    const numInstallments = apForm.installments || 1
+    const installmentAmount = totalAmount / numInstallments
+    const groupId = crypto.randomUUID()
+
+    const records = Array.from({ length: numInstallments }, (_, i) => {
+      const due = apForm.due_date
+        ? new Date(apForm.due_date)
+        : new Date()
+      if (i > 0) due.setMonth(due.getMonth() + i)
+
+      const record: any = {
+        company_id: companyId,
+        amount: installmentAmount,
+        description: apForm.description || null,
+        due_date: due.toISOString(),
+        installment_number: numInstallments > 1 ? i + 1 : null,
+        total_installments: numInstallments > 1 ? numInstallments : null,
+        installment_group_id: numInstallments > 1 ? groupId : null,
+      }
+      if (apForm.supplier_id) record.supplier_id = apForm.supplier_id
+      return record
+    })
+
+    const { error: insertError } = await supabase.from('accounts_payable').insert(records)
     if (insertError) { setApError(insertError.message); return }
     setShowApModal(false)
-    setApForm({ supplier_id: '', amount: '', description: '', due_date: '' })
+    setApForm({ supplier_id: '', amount: '', description: '', due_date: '', installments: 1 })
     fetchData()
   }
 
@@ -180,9 +198,14 @@ export default function ConceptoGastosPage() {
     fetchData()
   }
 
-  const deleteAp = async (id: string) => {
-    if (!confirm('¿Eliminar esta deuda?')) return
-    await supabase.from('accounts_payable').delete().eq('id', id)
+  const deleteAp = async (id: string, groupId?: string | null) => {
+    if (groupId) {
+      if (!confirm('¿Eliminar todas las cuotas de esta deuda?')) return
+      await supabase.from('accounts_payable').delete().eq('installment_group_id', groupId)
+    } else {
+      if (!confirm('¿Eliminar esta deuda?')) return
+      await supabase.from('accounts_payable').delete().eq('id', id)
+    }
     fetchData()
   }
 
@@ -388,7 +411,14 @@ export default function ConceptoGastosPage() {
                     {ap.map((a) => (
                       <div key={a.id} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-[var(--surface-2)]/30 transition-colors">
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-[var(--ink)] truncate">{a.suppliers?.name || 'Proveedor'}</p>
+                          <p className="text-sm font-medium text-[var(--ink)] truncate">
+                            {a.suppliers?.name || 'Proveedor'}
+                            {a.installment_number && (
+                              <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-[var(--accent)]/10 text-[var(--accent)]">
+                                Cuota {a.installment_number}/{a.total_installments}
+                              </span>
+                            )}
+                          </p>
                           <p className="text-xs text-[var(--ink-tertiary)] mt-0.5">
                             {a.description || '—'}
                             {a.due_date && ` · Vence: ${a.due_date.split('T')[0].split('-').reverse().join('/')}`}
@@ -404,7 +434,7 @@ export default function ConceptoGastosPage() {
                             <CheckCircle size={14} />
                           </button>
                           <button
-                            onClick={() => deleteAp(a.id)}
+                            onClick={() => deleteAp(a.id, a.installment_group_id)}
                             className="p-1 text-[var(--ink-tertiary)] hover:text-[var(--danger)] rounded-[var(--radius-sm)] cursor-pointer"
                             title="Eliminar"
                           >
@@ -425,7 +455,7 @@ export default function ConceptoGastosPage() {
       <Modal
         isOpen={showExpenseModal}
         onClose={() => setShowExpenseModal(false)}
-        title={editingExpense ? 'Editar Gasto' : 'Nuevo Gasto'}
+        title={editingExpense ? `Editar Gasto ${expenseForm.type === 'fixed' ? 'Fijo' : 'Variable'}` : `Nuevo Gasto ${expenseForm.type === 'fixed' ? 'Fijo' : 'Variable'}`}
       >
         <form onSubmit={handleExpenseSubmit} className="space-y-4">
           <Input
@@ -448,17 +478,6 @@ export default function ConceptoGastosPage() {
             onChange={(e) => setExpenseForm({ ...expenseForm, category: e.target.value })}
             placeholder="ej. Arriendo, Servicios, Papelería"
           />
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--ink-secondary)]">Tipo</label>
-            <select
-              value={expenseForm.type}
-              onChange={(e) => setExpenseForm({ ...expenseForm, type: e.target.value as 'fixed' | 'variable' })}
-              className="w-full px-3 py-2 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors"
-            >
-              <option value="fixed">Gasto Fijo</option>
-              <option value="variable">Gasto Variable</option>
-            </select>
-          </div>
           <Input
             label="Fecha"
             type="date"
@@ -507,9 +526,16 @@ export default function ConceptoGastosPage() {
               ))}
             </select>
           </div>
-          <Input label="Monto" type="number" value={apForm.amount} onChange={(e) => setApForm({ ...apForm, amount: e.target.value === '' ? '' : Number(e.target.value) })} required min={1} />
+          <Input label="Monto total" type="number" value={apForm.amount} onChange={(e) => setApForm({ ...apForm, amount: e.target.value === '' ? '' : Number(e.target.value) })} required min={1} />
           <Input label="Descripción" value={apForm.description} onChange={(e) => setApForm({ ...apForm, description: e.target.value })} />
-          <Input label="Fecha de vencimiento" type="date" value={apForm.due_date} onChange={(e) => setApForm({ ...apForm, due_date: e.target.value })} />
+          <Input label="Número de cuotas" type="number" value={apForm.installments} onChange={(e) => setApForm({ ...apForm, installments: Math.max(1, Number(e.target.value)) })} min={1} />
+          {apForm.installments > 1 && (
+            <div className="text-sm text-[var(--ink-secondary)] bg-[var(--surface-0)] px-3 py-2 rounded-[var(--radius-sm)] border border-[var(--border-subtle)]">
+              Valor por cuota: <strong className="text-[var(--ink)]">${(Number(apForm.amount) / apForm.installments).toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</strong>
+              {' · '}{apForm.installments} cuotas
+            </div>
+          )}
+          <Input label="Fecha de primera cuota" type="date" value={apForm.due_date} onChange={(e) => setApForm({ ...apForm, due_date: e.target.value })} />
           {apError && (
             <div className="text-sm text-[var(--danger)] bg-[var(--danger-light)] px-3 py-2 rounded-[var(--radius-sm)] border border-[var(--danger)]/20">
               {apError}

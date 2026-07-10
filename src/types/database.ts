@@ -229,6 +229,9 @@ export interface AccountPayable {
   due_date: string | null
   is_paid: boolean
   company_id: string
+  installment_number: number | null
+  total_installments: number | null
+  installment_group_id: string | null
   created_at: string
   updated_at: string
   suppliers?: Supplier | null
@@ -243,6 +246,7 @@ export interface AdministrativeExpense {
   expense_date: string
   notes: string | null
   company_id: string
+  last_paid_date: string | null
   created_at: string
   updated_at: string
 }
