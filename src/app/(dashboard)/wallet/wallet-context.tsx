@@ -21,11 +21,17 @@ interface WalletContextType {
   fixedExpenses: AdministrativeExpense[]
   variableExpenses: AdministrativeExpense[]
   fixedExpenseTotals: number
+  paidFixedExpenseTotals: number
+  periodStart: Date | null
+  periodEnd: Date | null
   variableExpenseTotals: number
+  editingAdminId: string | null
+  setEditingAdminId: (v: string | null) => void
   adminModalOpen: boolean
   setAdminModalOpen: (v: boolean) => void
   adminForm: { description: string; amount: number | ''; category: string; type: 'fixed' | 'variable'; expense_date: string; notes: string }
   setAdminForm: (v: any) => void
+  openEditAdmin: (expense: AdministrativeExpense) => void
   apModalOpen: boolean
   setApModalOpen: (v: boolean) => void
   apForm: { supplier_id: string; amount: number | ''; description: string; due_date: string; installments: number }
@@ -92,6 +98,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [adminExpenseTotals, setAdminExpenseTotals] = useState(0)
   const [balanceAdminExpenses, setBalanceAdminExpenses] = useState(0)
 
+  const [editingAdminId, setEditingAdminId] = useState<string | null>(null)
   const [adminModalOpen, setAdminModalOpen] = useState(false)
   const [adminForm, setAdminForm] = useState<{ description: string; amount: number | ''; category: string; type: 'fixed' | 'variable'; expense_date: string; notes: string }>({ description: '', amount: '', category: '', type: 'variable', expense_date: '', notes: '' })
 
@@ -122,12 +129,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     const [incomeRes, expensesRes, arRes, apRes, suppliersRes, incomeTotalRes, expenseTotalRes, arTotalRes, paymentsRes, productsRes, balanceIncomeRes, balancePaymentsRes, balanceExpensesRes, adminExpensesRes, balanceAdminExpensesRes, balanceApTotalRes, otherIncomeRes, balanceOtherIncomeRes] = await Promise.all([
       wf(supabase.from('stock_withdrawals').select('*, products(*)').eq('delivery_type', 'paid'), 'withdrawal_date').order('withdrawal_date', { ascending: false }).limit(10),
       wf(supabase.from('stock_entries').select('*, products(*)'), 'created_at').order('created_at', { ascending: false }).limit(10),
-      wf(supabase.from('stock_withdrawals').select('*, products(*), sellers(*)').eq('delivery_type', 'pending').gt('pending_amount', 0), 'withdrawal_date').order('withdrawal_date', { ascending: false }).limit(10),
+      supabase.from('stock_withdrawals').select('*, products(*), sellers(*)').eq('delivery_type', 'pending').gt('pending_amount', 0).order('withdrawal_date', { ascending: false }).limit(10),
       wf(supabase.from('accounts_payable').select('*, suppliers(*)').eq('is_paid', false), 'created_at').order('created_at', { ascending: false }),
       supabase.from('suppliers').select('*').order('name'),
       wf(supabase.from('stock_withdrawals').select('quantity, products!inner(price)').eq('delivery_type', 'paid'), 'withdrawal_date'),
       wf(supabase.from('stock_entries').select('quantity, products!inner(cost)').eq('payment_status', 'paid'), 'created_at'),
-      wf(supabase.from('stock_withdrawals').select('pending_amount').eq('delivery_type', 'pending').gt('pending_amount', 0), 'withdrawal_date'),
+      supabase.from('stock_withdrawals').select('pending_amount').eq('delivery_type', 'pending').gt('pending_amount', 0),
       wf(supabase.from('payments').select('amount'), 'created_at'),
       supabase.from('products').select('cost, stock'),
       supabase.from('stock_withdrawals').select('quantity, products!inner(price)').eq('delivery_type', 'paid'),
@@ -165,20 +172,18 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => { fetchAll() }, [filter])
 
-  const { startDate: periodStart } = computeDateRange(filter)
-  const fixedExpenses = adminExpenses.filter((e) => {
-    if (e.type !== 'fixed') return false
-    if (!periodStart) return true
-    if (!e.last_paid_date) return true
-    return new Date(e.last_paid_date) < periodStart
-  })
+  const { startDate: periodStart, endDate: periodEnd } = computeDateRange(filter)
+  const fixedExpenses = adminExpenses.filter((e) => e.type === 'fixed')
   const variableExpenses = adminExpenses.filter((e) => e.type === 'variable')
   const fixedExpenseTotals = fixedExpenses.reduce((s, e) => s + e.amount, 0)
+  const paidFixedExpenseTotals = fixedExpenses
+    .filter((e) => e.last_paid_date && periodStart && new Date(e.last_paid_date) >= periodStart)
+    .reduce((s, e) => s + e.amount, 0)
   const variableExpenseTotals = variableExpenses.reduce((s, e) => s + e.amount, 0)
 
   const apTotal = ap.reduce((sum, a) => sum + a.amount, 0)
   const [apShowAll, setApShowAll] = useState(false)
-  const netArTotals = Math.max(0, arTotals - balancePayments)
+  const netArTotals = arTotals
   const gastosTotal = expenseTotals + adminExpenseTotals + apTotal
   const balance = balanceIncome + balancePayments + balanceOtherIncome - balanceExpenses - balanceAdminExpenses - balanceApTotal
 
@@ -222,7 +227,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   }
 
   const markFixedAsPaid = async (id: string) => {
-    await supabase.from('administrative_expenses').update({ last_paid_date: new Date().toISOString() }).eq('id', id)
+    await supabase.from('administrative_expenses').update({ last_paid_date: (periodStart ?? new Date()).toISOString() }).eq('id', id)
     fetchAll()
   }
 
@@ -239,6 +244,20 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   const [fixedShowAll, setFixedShowAll] = useState(false)
   const [variableShowAll, setVariableShowAll] = useState(false)
+
+  const openEditAdmin = (expense: AdministrativeExpense) => {
+    setEditingAdminId(expense.id)
+    setAdminForm({
+      description: expense.description,
+      amount: expense.amount,
+      category: expense.category || '',
+      type: expense.type,
+      expense_date: expense.expense_date || '',
+      notes: expense.notes || '',
+    })
+    setAdminModalOpen(true)
+  }
+
   const handleCreateAdmin = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!companyId) return
@@ -251,7 +270,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       expense_date: adminForm.expense_date || null,
       notes: adminForm.notes || null,
     }
-    await supabase.from('administrative_expenses').insert(payload)
+    if (editingAdminId) {
+      await supabase.from('administrative_expenses').update(payload).eq('id', editingAdminId)
+    } else {
+      await supabase.from('administrative_expenses').insert(payload)
+    }
+    setEditingAdminId(null)
     setAdminModalOpen(false)
     setAdminForm({ description: '', amount: '', category: '', type: 'variable', expense_date: '', notes: '' })
     fetchAll()
@@ -294,8 +318,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     <WalletContext.Provider
       value={{
         income, expenses, ar, ap, suppliers, filter, setFilter, inventoryValue,
-        adminExpenses, adminExpenseTotals, fixedExpenses, variableExpenses, fixedExpenseTotals, variableExpenseTotals,
-        adminModalOpen, setAdminModalOpen, adminForm, setAdminForm,
+        adminExpenses, adminExpenseTotals, fixedExpenses, variableExpenses, fixedExpenseTotals, paidFixedExpenseTotals, periodStart, periodEnd, variableExpenseTotals,
+        editingAdminId, setEditingAdminId,
+        adminModalOpen, setAdminModalOpen, adminForm, setAdminForm, openEditAdmin,
         apModalOpen, setApModalOpen, apForm, setApForm,
         otherIncome, otherIncomeTotals, otherIncomeModalOpen, setOtherIncomeModalOpen, otherIncomeForm, setOtherIncomeForm,
         incomeTotals, expenseTotals, arTotals,

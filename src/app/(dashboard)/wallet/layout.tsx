@@ -18,12 +18,12 @@ function WalletShell({ children }: { children: ReactNode }) {
   const {
     filter, setFilter,
     incomeTotals, paymentsTotal, otherIncomeTotals,
-    netArTotals, gastosTotal, balance,
+    netArTotals, apTotal, gastosTotal, balance,
     inventoryValue,
     formatCurrency,
     suppliers,
     apForm, setApForm, apModalOpen, setApModalOpen, handleCreateAp,
-    adminForm, setAdminForm, adminModalOpen, setAdminModalOpen, handleCreateAdmin,
+    adminForm, setAdminForm, adminModalOpen, setAdminModalOpen, editingAdminId, setEditingAdminId, handleCreateAdmin,
     otherIncomeForm, setOtherIncomeForm, otherIncomeModalOpen, setOtherIncomeModalOpen, handleCreateOtherIncome,
   } = useWallet()
 
@@ -48,6 +48,12 @@ function WalletShell({ children }: { children: ReactNode }) {
               <User size={14} className="text-[var(--accent)]" /> Por Cobrar
             </p>
             <p className="text-lg font-bold text-[var(--accent)]">{formatCurrency(netArTotals)}</p>
+          </div>
+          <div>
+            <p className="text-xs text-[var(--ink-tertiary)] uppercase tracking-wide flex items-center gap-1 mb-1">
+              <Building2 size={14} className="text-[var(--warning)]" /> Deuda
+            </p>
+            <p className="text-lg font-bold text-[var(--warning)]">{formatCurrency(apTotal)}</p>
           </div>
           <div>
             <p className="text-xs text-[var(--ink-tertiary)] uppercase tracking-wide flex items-center gap-1 mb-1">
@@ -108,8 +114,12 @@ function WalletShell({ children }: { children: ReactNode }) {
         </form>
       </Modal>
 
-      {/* Modal: Add Operational Expense */}
-      <Modal isOpen={adminModalOpen} onClose={() => setAdminModalOpen(false)} title="Agregar Gasto Administrativo">
+      {/* Modal: Add / Edit Operational Expense */}
+      <Modal
+        isOpen={adminModalOpen}
+        onClose={() => { setAdminModalOpen(false); setEditingAdminId(null) }}
+        title={editingAdminId ? 'Editar Gasto' : 'Agregar Gasto'}
+      >
         <form onSubmit={handleCreateAdmin} className="space-y-4">
           <Input label="Descripción" value={adminForm.description} onChange={(e) => setAdminForm({ ...adminForm, description: e.target.value })} required />
           <Input label="Monto" type="number" value={adminForm.amount} onChange={(e) => setAdminForm({ ...adminForm, amount: e.target.value === '' ? '' : Number(e.target.value) })} required min={1} />
@@ -128,8 +138,8 @@ function WalletShell({ children }: { children: ReactNode }) {
           <Input label="Fecha del gasto" type="date" value={adminForm.expense_date} onChange={(e) => setAdminForm({ ...adminForm, expense_date: e.target.value })} />
           <Input label="Notas" value={adminForm.notes} onChange={(e) => setAdminForm({ ...adminForm, notes: e.target.value })} />
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="ghost" onClick={() => setAdminModalOpen(false)}>Cancelar</Button>
-            <Button type="submit">Crear Gasto</Button>
+            <Button type="button" variant="ghost" onClick={() => { setAdminModalOpen(false); setEditingAdminId(null) }}>Cancelar</Button>
+            <Button type="submit">{editingAdminId ? 'Guardar' : 'Crear'}</Button>
           </div>
         </form>
       </Modal>

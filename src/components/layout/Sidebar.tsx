@@ -13,7 +13,6 @@ import {
   X,
   Box,
   ArrowUpDown,
-  Receipt,
   Users,
   ChevronRight,
   ChevronDown,
@@ -21,7 +20,6 @@ import {
   FileText,
   LayoutDashboard,
   Package,
-  Scale,
   Building2,
 } from 'lucide-react'
 
@@ -35,6 +33,7 @@ const walletSubItems: SubNavItem[] = [
   { href: '/wallet/ingresos', label: 'Ingresos' },
   { href: '/wallet/cuentas-por-cobrar', label: 'Cuentas por Cobrar' },
   { href: '/wallet/gastos', label: 'Gastos' },
+  { href: '/wallet/deuda', label: 'Deudas' },
 ]
 
 const inventorySubItems: SubNavItem[] = [
@@ -60,7 +59,6 @@ const navItems = [
     href: '/inventory',
     children: inventorySubItems,
   },
-  { type: 'link' as const, href: '/settings', label: 'Concepto de Gastos', icon: Receipt },
   { type: 'link' as const, href: '/users', label: 'Usuarios', icon: Users },
   {
     type: 'group' as const,
