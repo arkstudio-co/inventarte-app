@@ -8,6 +8,8 @@ import { DateFilter, computeDateRange } from '@/components/ui/DateFilter'
 import type { DateFilterState } from '@/components/ui/DateFilter'
 import { EntryStockModal } from '@/components/inventory/EntryStockModal'
 import { WithdrawalModal } from '@/components/inventory/WithdrawalModal'
+import { SaleModal } from '@/components/inventory/SaleModal'
+import type { Product } from '@/types/database'
 
 import {
   Plus,
@@ -21,7 +23,7 @@ import {
   Eye,
   X,
   RefreshCw,
-  Box,
+  ShoppingCart,
 } from 'lucide-react'
 
 interface Movement {
@@ -49,7 +51,7 @@ export default function InventoryMovementsPage() {
   const router = useRouter()
   const supabase = createClient()
 
-  const [products, setProducts] = useState<{ id: string; name: string; sku: string; stock: number }[]>([])
+  const [products, setProducts] = useState<Product[]>([])
   const [movements, setMovements] = useState<Movement[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
@@ -65,6 +67,7 @@ export default function InventoryMovementsPage() {
 
   const [showEntryModal, setShowEntryModal] = useState(false)
   const [withdrawalProduct, setWithdrawalProduct] = useState<string | null>(null)
+  const [showSaleModal, setShowSaleModal] = useState(false)
 
   const fetchData = async () => {
     setIsLoading(true)
@@ -73,11 +76,12 @@ export default function InventoryMovementsPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setIsLoading(false); setError('Debes iniciar sesión'); return }
 
-    const [productsRes, entriesRes, withdrawalsRes, adjustmentsRes] = await Promise.all([
-      supabase.from('products').select('id, name, sku, stock').eq('is_active', true).order('name'),
+    const [productsRes, entriesRes, withdrawalsRes, adjustmentsRes, remisionesRes] = await Promise.all([
+      supabase.from('products').select('id, name, sku, stock, price, cost, is_active').eq('is_active', true).order('name'),
       supabase.from('stock_entries').select('*, products!inner(name, sku, cost)').order('created_at', { ascending: false }),
       supabase.from('stock_withdrawals').select('*, products!inner(name, sku, price)').order('withdrawal_date', { ascending: false }),
       supabase.from('stock_adjustments').select('*, products!inner(name, sku, cost)').order('created_at', { ascending: false }),
+      supabase.from('remisiones').select('*, remision_items(*), sellers(name)').order('created_at', { ascending: false }),
     ])
 
     if (productsRes.error) { setError(productsRes.error.message); setIsLoading(false); return }
@@ -86,6 +90,7 @@ export default function InventoryMovementsPage() {
     const entriesList = (entriesRes.data || []) as any[]
     const withdrawalsList = (withdrawalsRes.data || []) as any[]
     const adjustmentsList = (adjustmentsRes.data || []) as any[]
+    const remisionesList = (remisionesRes.data || []) as any[]
 
     const productMap = new Map<string, { name: string; sku: string }>()
     for (const p of productList) productMap.set(p.id, { name: p.name, sku: p.sku })
@@ -132,6 +137,29 @@ export default function InventoryMovementsPage() {
         documentType: 'Ajuste',
         paymentStatus: null,
       })
+    }
+
+    for (const r of remisionesList) {
+      const sellerName = r.sellers?.name
+      const itemsList = r.remision_items || []
+      if (!itemsList.length) continue
+      for (const item of itemsList) {
+        const prod = productMap.get(item.product_id) || { name: item.product_name || 'Producto', sku: '' }
+        const qty = item.quantity
+        mergedMovements.push({
+          id: `remision-${r.id}-${item.id}`,
+          date: new Date(r.created_at), dateStr: r.created_at,
+          productId: item.product_id, productName: prod.name, productSku: prod.sku,
+          type: qty > 0 ? 'withdrawal' : 'entry',
+          quantity: Math.abs(qty),
+          value: Math.abs(item.subtotal ?? qty * (item.unit_price || 0)),
+          balance: 0,
+          reference: sellerName || 'Venta',
+          observations: r.notes ? `REM-${r.remision_number} — ${r.notes}` : `REM-${r.remision_number}`,
+          documentType: 'Venta',
+          paymentStatus: r.delivery_type || null,
+        })
+      }
     }
 
     mergedMovements.sort((a, b) => a.date.getTime() - b.date.getTime())
@@ -248,6 +276,9 @@ export default function InventoryMovementsPage() {
         <div className="flex items-center gap-2">
           <Button variant="secondary" size="sm" onClick={() => setShowEntryModal(true)}>
             <Plus size={14} /> Entrada
+          </Button>
+          <Button variant="secondary" size="sm" onClick={() => setShowSaleModal(true)}>
+            <ShoppingCart size={14} /> Venta
           </Button>
           <Button variant="secondary" size="sm" onClick={() => setWithdrawalProduct('')}>
             <TrendingDown size={14} /> Salida
@@ -430,6 +461,14 @@ export default function InventoryMovementsPage() {
           onSuccess={() => { setWithdrawalProduct(null); fetchData() }}
         />
       )}
+
+      {/* Sale Modal */}
+      <SaleModal
+        isOpen={showSaleModal}
+        onClose={() => setShowSaleModal(false)}
+        onSuccess={() => { setShowSaleModal(false); fetchData() }}
+        products={products}
+      />
     </div>
   )
 }

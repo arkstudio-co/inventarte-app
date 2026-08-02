@@ -105,7 +105,6 @@ export async function POST(request: Request) {
         itemsWithSubtotals.map((item: any) => ({
           ...item,
           remision_id: remision.id,
-          company_id: companyId,
         }))
       )
 
