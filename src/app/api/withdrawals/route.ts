@@ -2,6 +2,18 @@ import { NextResponse } from 'next/server'
 import { createServerSupabase } from '@/lib/supabase/server'
 import { getServerCompanyId } from '@/lib/supabase/company'
 
+function friendlyStockError(raw: string | null | undefined): string {
+  if (!raw) return 'No hay stock suficiente'
+  const m = raw.match(/^Stock insuficiente: (\d+) < (\d+) para "(.+)"$/)
+  if (m) {
+    const [, available, , name] = m
+    return Number(available) === 0
+      ? `No hay stock disponible de ${name}`
+      : `Stock insuficiente de ${name}: solo hay ${available} disponibles`
+  }
+  return raw
+}
+
 export async function POST(request: Request) {
   const supabase = await createServerSupabase()
   const body = await request.json()
@@ -15,9 +27,10 @@ export async function POST(request: Request) {
     ? `[${body.reason}] ${body.observations || ''}`
     : `[${body.reason}] ${body.observations || ''}`
 
-  const rows = body.items.map((item: { product_id: string; quantity: number }) => ({
+  const rows = body.items.map((item: { product_id: string; quantity: number; unit_cost?: number }) => ({
     product_id: item.product_id,
     quantity: item.quantity,
+    unit_cost: typeof item.unit_cost === 'number' && item.unit_cost > 0 ? item.unit_cost : 0,
     person_name: null,
     person_email: null,
     delivery_type: 'paid',
@@ -42,7 +55,7 @@ export async function POST(request: Request) {
     const result = stockResult as any
     if (stockError || result?.error) {
       await supabase.from('stock_withdrawals').delete().in('id', withdrawals.map((w: any) => w.id))
-      return NextResponse.json({ error: result?.error || stockError?.message }, { status: 500 })
+      return NextResponse.json({ error: friendlyStockError(result?.error || stockError?.message) }, { status: 500 })
     }
   }
 

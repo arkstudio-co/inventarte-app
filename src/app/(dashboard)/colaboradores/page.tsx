@@ -482,8 +482,55 @@ function RegisterReturnModal({ sellerId, products, onRegistered }: { sellerId: s
     { id: nextReturnId(), product_id: '', quantity: '' },
   ])
   const [observations, setObservations] = useState('')
+  const [availableByProduct, setAvailableByProduct] = useState<Record<string, number>>({})
+  const [outstandingBalance, setOutstandingBalance] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+
+  const formatCurrency = (n: number) => '$' + n.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+
+  const loadAvailable = async () => {
+    const [remRes, retRes, payRes] = await Promise.all([
+      supabase.from('remisiones').select('type, delivery_type, total_amount, remision_items(product_id, quantity)').eq('seller_id', sellerId),
+      supabase.from('returns').select('product_id, quantity, products(price)').eq('seller_id', sellerId),
+      supabase.from('payments').select('amount').eq('seller_id', sellerId),
+    ])
+    const available: Record<string, number> = {}
+    let pending = 0
+    let returned = 0
+    let paid = 0
+    for (const r of remRes.data || []) {
+      if (r.type === 'sale') {
+        if (r.delivery_type === 'pending') pending += r.total_amount || 0
+        for (const item of r.remision_items || []) {
+          available[item.product_id] = (available[item.product_id] || 0) + item.quantity
+        }
+      } else if (r.type === 'return') {
+        returned += Math.abs(r.total_amount || 0)
+        for (const item of r.remision_items || []) {
+          available[item.product_id] = (available[item.product_id] || 0) - Math.abs(item.quantity)
+        }
+      } else if (r.type === 'payment') {
+        paid += r.total_amount || 0
+      }
+    }
+    for (const ret of retRes.data || []) {
+      const r = ret as any
+      available[r.product_id] = (available[r.product_id] || 0) - r.quantity
+      returned += (r.quantity || 0) * (r.products?.price || 0)
+    }
+    for (const p of payRes.data || []) paid += p.amount || 0
+    for (const k of Object.keys(available)) {
+      if (available[k] <= 0) delete available[k]
+    }
+    setAvailableByProduct(available)
+    setOutstandingBalance(pending - returned - paid)
+  }
+
+  useEffect(() => {
+    if (open) loadAvailable()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
 
   const addItem = () => setItems((prev) => [...prev, { id: nextReturnId(), product_id: '', quantity: '' }])
   const updateItem = (id: string, field: { product_id?: string; quantity?: number | '' }) =>
@@ -510,6 +557,20 @@ function RegisterReturnModal({ sellerId, products, onRegistered }: { sellerId: s
     e.preventDefault()
     const validItems = items.filter((i) => i.product_id && i.quantity !== '' && (i.quantity as number) > 0)
     if (validItems.length === 0) { setError('Agrega al menos un producto'); return }
+    for (const item of validItems) {
+      const available = availableByProduct[item.product_id] || 0
+      if ((item.quantity as number) > available) {
+        setError(`No puedes devolver ${item.quantity} de ${getProduct(item.product_id)?.name || 'este producto'}: el vendedor solo ha recibido ${available}`)
+        return
+      }
+    }
+    const returnValue = validItems.reduce((s, i) => s + (i.quantity as number) * (getProduct(i.product_id)?.price || 0), 0)
+    if (outstandingBalance !== null && returnValue > outstandingBalance + 0.001) {
+      setError(outstandingBalance <= 0.001
+        ? 'Este vendedor no tiene deuda pendiente, no puede haber devoluciones'
+        : `La devolución (${formatCurrency(returnValue)}) excede la deuda pendiente del vendedor (${formatCurrency(Math.max(outstandingBalance, 0))})`)
+      return
+    }
     setSaving(true)
     setError('')
 
@@ -530,6 +591,7 @@ function RegisterReturnModal({ sellerId, products, onRegistered }: { sellerId: s
           product_name: getProduct(i.product_id)?.name || '',
           quantity: i.quantity,
           unit_price: getProduct(i.product_id)?.price || 0,
+          unit_cost: getProduct(i.product_id)?.cost ?? 0,
         })),
       }),
     })
@@ -573,36 +635,46 @@ function RegisterReturnModal({ sellerId, products, onRegistered }: { sellerId: s
 
             {(() => {
               const selectedIds = new Set(items.map((i) => i.product_id).filter(Boolean))
+              const hasAvailable = Object.keys(availableByProduct).length > 0
               return items.map((item) => (
-                <div key={item.id} className="grid grid-cols-[1fr_72px_28px] gap-2 px-3 py-2 items-center border-b border-[var(--border-default)] last:border-b-0">
-                  <select
-                    value={item.product_id}
-                    onChange={(e) => updateItem(item.id, { product_id: e.target.value })}
-                    className="w-full px-2 py-1.5 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors"
-                  >
-                    <option value="">Seleccionar producto</option>
-                    {products
-                      .filter((p) => p.is_active && (p.id === item.product_id || !selectedIds.has(p.id)))
-                      .map((p) => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
-                      ))}
-                  </select>
-                  <input
-                    type="number"
-                    min={1}
-                    value={item.quantity}
-                    onChange={(e) => updateItem(item.id, { quantity: e.target.value === '' ? '' : Number(e.target.value) })}
-                    placeholder="Cant."
-                    className="w-full px-2 py-1.5 text-sm text-center rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeItem(item.id)}
-                    disabled={items.length <= 1}
-                    className="w-7 h-7 flex items-center justify-center text-xs rounded-[var(--radius-sm)] text-[var(--ink-muted)] hover:bg-[var(--danger-light)] hover:text-[var(--danger)] transition-colors disabled:opacity-20 disabled:pointer-events-none cursor-pointer"
-                  >
-                    ✕
-                  </button>
+                <div key={item.id} className="px-3 py-2 border-b border-[var(--border-default)] last:border-b-0">
+                  {!hasAvailable && !item.product_id && (
+                    <p className="mb-2 text-[11px] text-[var(--ink-tertiary)]">El vendedor no tiene productos para devolver.</p>
+                  )}
+                  <div className="grid grid-cols-[1fr_72px_28px] gap-2 items-center">
+                    <select
+                      value={item.product_id}
+                      onChange={(e) => updateItem(item.id, { product_id: e.target.value })}
+                      className="w-full px-2 py-1.5 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+                    >
+                      <option value="">Seleccionar producto</option>
+                      {products
+                        .filter((p) => p.is_active && (p.id === item.product_id || !selectedIds.has(p.id)))
+                        .filter((p) => p.id === item.product_id || (availableByProduct[p.id] || 0) > 0)
+                        .map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name} (Disponible para devolver: {availableByProduct[p.id] || 0})
+                          </option>
+                        ))}
+                    </select>
+                    <input
+                      type="number"
+                      min={1}
+                      max={item.product_id ? availableByProduct[item.product_id] || 1 : undefined}
+                      value={item.quantity}
+                      onChange={(e) => updateItem(item.id, { quantity: e.target.value === '' ? '' : Number(e.target.value) })}
+                      placeholder="Cant."
+                      className="w-full px-2 py-1.5 text-sm text-center rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeItem(item.id)}
+                      disabled={items.length <= 1}
+                      className="w-7 h-7 flex items-center justify-center text-xs rounded-[var(--radius-sm)] text-[var(--ink-muted)] hover:bg-[var(--danger-light)] hover:text-[var(--danger)] transition-colors disabled:opacity-20 disabled:pointer-events-none cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  </div>
                 </div>
               ))
             })()}
@@ -646,14 +718,55 @@ function RegisterPaymentModal({ sellerId, onRegistered }: { sellerId: string; on
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState({ amount: '' as number | '', observations: '', payment_method: 'cash' as 'cash' | 'transfer', bank_account: '', card_last_four: '' })
+  const [outstandingBalance, setOutstandingBalance] = useState<number | null>(null)
+  const [loadingBalance, setLoadingBalance] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+
+  const formatCurrency = (n: number) => '$' + n.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+
+  const noDebt = outstandingBalance !== null && outstandingBalance <= 0.001
+
+  const loadBalance = async () => {
+    setLoadingBalance(true)
+    const [remRes, retRes, payRes] = await Promise.all([
+      supabase.from('remisiones').select('type, delivery_type, total_amount').eq('seller_id', sellerId),
+      supabase.from('returns').select('quantity, products(price)').eq('seller_id', sellerId),
+      supabase.from('payments').select('amount').eq('seller_id', sellerId),
+    ])
+    let pending = 0
+    let returned = 0
+    let paid = 0
+    for (const r of remRes.data || []) {
+      if (r.type === 'sale' && r.delivery_type === 'pending') pending += r.total_amount || 0
+      else if (r.type === 'return') returned += Math.abs(r.total_amount || 0)
+      else if (r.type === 'payment') paid += r.total_amount || 0
+    }
+    for (const ret of retRes.data || []) {
+      const r = ret as any
+      returned += (r.quantity || 0) * (r.products?.price || 0)
+    }
+    for (const p of payRes.data || []) paid += p.amount || 0
+    setOutstandingBalance(pending - returned - paid)
+    setLoadingBalance(false)
+  }
+
+  useEffect(() => {
+    if (open) loadBalance()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const amt = form.amount === '' ? 0 : form.amount
     if (amt <= 0) return
     if (form.payment_method === 'transfer' && (!form.bank_account.trim() || form.card_last_four.length !== 4)) return
+    if (outstandingBalance !== null && amt > outstandingBalance + 0.001) {
+      setError(outstandingBalance <= 0.001
+        ? 'Este vendedor no tiene deuda pendiente'
+        : `No puedes abonar ${formatCurrency(amt)}: el vendedor solo debe ${formatCurrency(outstandingBalance)}`)
+      return
+    }
     setSaving(true)
     setError('')
 
@@ -702,7 +815,17 @@ function RegisterPaymentModal({ sellerId, onRegistered }: { sellerId: string; on
       </button>
       <Modal isOpen={open} onClose={() => setOpen(false)} title="Registrar Pago">
         <form onSubmit={handleSubmit} className="space-y-4">
-          <Input label="Monto" type="number" step="0.01" min={1} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value === '' ? '' : Number(e.target.value) })} required />
+          {outstandingBalance === null && loadingBalance && (
+            <p className="text-xs text-[var(--ink-tertiary)]">Calculando saldo pendiente...</p>
+          )}
+          {outstandingBalance !== null && (
+            <div className={`rounded-[var(--radius-sm)] px-3 py-2 text-sm border ${noDebt ? 'bg-[var(--success)]/10 border-[var(--success)]/20 text-[var(--success)]' : 'bg-[var(--warning-light)] border-[var(--warning)]/20 text-[var(--warning)]'}`}>
+              {noDebt
+                ? 'Este vendedor no tiene deuda pendiente.'
+                : `Saldo pendiente: ${formatCurrency(outstandingBalance)}`}
+            </div>
+          )}
+          <Input label="Monto" type="number" step="0.01" min={1} max={noDebt ? 1 : outstandingBalance ?? undefined} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value === '' ? '' : Number(e.target.value) })} required disabled={noDebt} />
 
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-[var(--ink-secondary)]">Método de pago</label>
@@ -734,7 +857,7 @@ function RegisterPaymentModal({ sellerId, onRegistered }: { sellerId: string; on
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
-            <Button type="submit" disabled={saving}>{saving ? 'Guardando...' : 'Registrar'}</Button>
+            <Button type="submit" disabled={saving || noDebt}>{saving ? 'Guardando...' : 'Registrar'}</Button>
           </div>
         </form>
       </Modal>

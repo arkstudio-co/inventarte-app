@@ -158,12 +158,11 @@ export function CreateProductModal({ isOpen, onClose, onSuccess }: CreateProduct
           />
           <Input
             id="cost"
-            label="Precio producción"
+            label="Costo de referencia (opcional)"
             type="number"
             step="0.01"
             value={form.cost}
             onChange={(e) => updateField('cost', e.target.value === '' ? '' : Number(e.target.value))}
-            required
           />
           <Input
             id="gramaje"

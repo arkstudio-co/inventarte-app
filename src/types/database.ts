@@ -95,6 +95,7 @@ export interface StockEntry {
   id: string
   product_id: string
   quantity: number
+  unit_cost: number
   payment_status: 'paid' | 'pending'
   observations: string | null
   created_by: string
@@ -141,6 +142,7 @@ export interface StockWithdrawal {
   id: string
   product_id: string
   quantity: number
+  unit_cost: number
   person_name: string | null
   person_email: string | null
   delivery_type: 'paid' | 'pending'
@@ -217,6 +219,7 @@ export interface RemisionItem {
   product_name: string
   quantity: number
   unit_price: number
+  unit_cost: number | null
   subtotal: number
   products?: Product | null
 }

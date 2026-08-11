@@ -10,6 +10,7 @@ interface WithdrawalItem {
   id: string
   product_id: string
   quantity: number | ''
+  unit_cost: number | ''
 }
 
 const REASONS = [
@@ -44,6 +45,7 @@ export function WithdrawalModal({ productId, onClose, onSuccess }: WithdrawalMod
     id: newItemId(),
     product_id: productId || '',
     quantity: productId ? 1 : '',
+    unit_cost: '',
   }])
 
   useEffect(() => {
@@ -59,11 +61,19 @@ export function WithdrawalModal({ productId, onClose, onSuccess }: WithdrawalMod
   }, [])
 
   const updateItem = (id: string, field: Partial<WithdrawalItem>) => {
-    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...field } : i)))
+    setItems((prev) => prev.map((i) => {
+      if (i.id !== id) return i
+      const updated = { ...i, ...field }
+      if (field.product_id !== undefined) {
+        const prod = products.find((p) => p.id === field.product_id)
+        updated.unit_cost = prod?.cost ?? ''
+      }
+      return updated
+    }))
   }
 
   const addItem = () => {
-    setItems((prev) => [...prev, { id: newItemId(), product_id: '', quantity: '' }])
+    setItems((prev) => [...prev, { id: newItemId(), product_id: '', quantity: '', unit_cost: '' }])
   }
 
   const removeItem = (id: string) => {
@@ -72,10 +82,14 @@ export function WithdrawalModal({ productId, onClose, onSuccess }: WithdrawalMod
 
   const getProduct = (productId: string) => products.find((p) => p.id === productId)
 
+  const lineCost = (item: WithdrawalItem) => {
+    if (item.unit_cost !== '') return item.unit_cost as number
+    return getProduct(item.product_id)?.cost || 0
+  }
+
   const totalValue = items.reduce((sum, item) => {
     if (!item.product_id || item.quantity === '') return sum
-    const prod = getProduct(item.product_id)
-    return sum + (item.quantity as number) * (prod?.cost || 0)
+    return sum + (item.quantity as number) * lineCost(item)
   }, 0)
 
   const totalQty = items.reduce((sum, item) => {
@@ -116,6 +130,7 @@ export function WithdrawalModal({ productId, onClose, onSuccess }: WithdrawalMod
         items: validItems.map((i) => ({
           product_id: i.product_id,
           quantity: i.quantity,
+          unit_cost: lineCost(i),
         })),
         reason,
         supplier_id: reason === 'devolucion_proveedor' ? supplierId || null : null,
@@ -163,11 +178,19 @@ export function WithdrawalModal({ productId, onClose, onSuccess }: WithdrawalMod
           </div>
 
           {(() => {
+            const availableProducts = products.filter((p) => p.stock > 0)
+            if (availableProducts.length === 0) {
+              return (
+                <div className="px-3 py-4 text-sm text-[var(--ink-tertiary)]">
+                  No hay productos con stock disponible para retirar
+                </div>
+              )
+            }
             const selectedIds = new Set(items.map((i) => i.product_id).filter(Boolean))
             return items.map((item) => {
               const prod = item.product_id ? getProduct(item.product_id) : undefined
               return (
-                <div key={item.id} className="grid grid-cols-[1fr_72px_28px] gap-2 px-3 py-2 items-center border-b border-[var(--border-default)] last:border-b-0">
+                <div key={item.id} className="grid grid-cols-[1fr_72px_90px_28px] gap-2 px-3 py-2 items-center border-b border-[var(--border-default)] last:border-b-0">
                   <select
                     value={item.product_id}
                     onChange={(e) => updateItem(item.id, { product_id: e.target.value })}
@@ -189,6 +212,14 @@ export function WithdrawalModal({ productId, onClose, onSuccess }: WithdrawalMod
                     value={item.quantity}
                     onChange={(e) => updateItem(item.id, { quantity: e.target.value === '' ? '' : Number(e.target.value) })}
                     placeholder="Cant."
+                    className="w-full px-2 py-1.5 text-sm text-center rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                  <input
+                    type="number"
+                    min={0}
+                    value={item.unit_cost}
+                    onChange={(e) => updateItem(item.id, { unit_cost: e.target.value === '' ? '' : Number(e.target.value) })}
+                    placeholder="Costo uni."
                     className="w-full px-2 py-1.5 text-sm text-center rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                 <button

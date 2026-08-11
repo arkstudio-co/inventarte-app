@@ -3,6 +3,18 @@ import { createServerSupabase } from '@/lib/supabase/server'
 import { sendRemisionEmail } from '@/lib/email/resend'
 import { getServerCompanyId } from '@/lib/supabase/company'
 
+function friendlyStockError(raw: string | null | undefined): string {
+  if (!raw) return 'No hay stock suficiente'
+  const m = raw.match(/^Stock insuficiente: (\d+) < (\d+) para "(.+)"$/)
+  if (m) {
+    const [, available, , name] = m
+    return Number(available) === 0
+      ? `No hay stock disponible de ${name}`
+      : `Stock insuficiente de ${name}: solo hay ${available} disponibles`
+  }
+  return raw
+}
+
 export async function GET() {
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
@@ -57,6 +69,7 @@ export async function POST(request: Request) {
       product_name: item.product_name,
       quantity: qty,
       unit_price: item.unit_price,
+      unit_cost: item.unit_cost ?? null,
       subtotal,
     }
   })
@@ -74,6 +87,28 @@ export async function POST(request: Request) {
     }
     if (payment_observations) parts.push(`Obs: ${payment_observations}`)
     finalNotes = finalNotes ? `${finalNotes}\n${parts.join(' | ')}` : parts.join(' | ')
+  }
+
+  // No saldo a favor: abonos y devoluciones limitados por la deuda pendiente
+  if (remisionType === 'payment' || remisionType === 'return') {
+    const balance = await getSellerOutstandingBalance(supabase, seller_id)
+    if (remisionType === 'payment') {
+      if (totalAmount > balance + 0.001) {
+        if (balance <= 0.001) {
+          return NextResponse.json({ error: 'El vendedor no tiene deuda pendiente' }, { status: 400 })
+        }
+        return NextResponse.json({
+          error: `No puedes abonar ${fmtMoney(totalAmount)}: el vendedor solo debe ${fmtMoney(balance)}`,
+        }, { status: 400 })
+      }
+    } else if (remisionType === 'return') {
+      const returnValue = Math.abs(totalAmount)
+      if (returnValue > balance + 0.001) {
+        return NextResponse.json({
+          error: `La devolución (${fmtMoney(returnValue)}) excede la deuda pendiente del vendedor (${fmtMoney(Math.max(balance, 0))})`,
+        }, { status: 400 })
+      }
+    }
   }
 
   const companyId = await getServerCompanyId()
@@ -125,10 +160,20 @@ export async function POST(request: Request) {
       if (stockError || sr?.error) {
         await supabase.from('remision_items').delete().eq('remision_id', remision.id)
         await supabase.from('remisiones').delete().eq('id', remision.id)
-        return NextResponse.json({ error: sr?.error || `Error descontando stock de ${item.product_name}: ${stockError?.message}` }, { status: 500 })
+        return NextResponse.json({ error: friendlyStockError(sr?.error || `Error descontando stock de ${item.product_name}: ${stockError?.message}`) }, { status: 500 })
       }
     }
   } else if (remisionType === 'return' && items) {
+    for (const item of items) {
+      const available = await getReturnableQuantity(supabase, seller_id, item.product_id)
+      if (item.quantity > available) {
+        await supabase.from('remision_items').delete().eq('remision_id', remision.id)
+        await supabase.from('remisiones').delete().eq('id', remision.id)
+        return NextResponse.json({
+          error: `No puedes devolver ${item.quantity} de ${item.product_name || 'este producto'}: el vendedor solo ha recibido ${available}`,
+        }, { status: 400 })
+      }
+    }
     for (const item of items) {
       const { data: stockResult, error: stockError } = await supabase.rpc('increment_stock', {
         p_product_id: item.product_id,
@@ -154,4 +199,63 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json(fullRemision, { status: 201 })
+}
+
+async function getReturnableQuantity(
+  supabase: any,
+  sellerId: string,
+  productId: string
+): Promise<number> {
+  const { data: remisiones } = await supabase
+    .from('remisiones')
+    .select('type, remision_items(product_id, quantity)')
+    .eq('seller_id', sellerId)
+
+  let delivered = 0
+  let returned = 0
+  for (const r of remisiones || []) {
+    for (const item of r.remision_items || []) {
+      if (item.product_id !== productId) continue
+      if (r.type === 'sale') delivered += item.quantity
+      else if (r.type === 'return') returned += Math.abs(item.quantity)
+    }
+  }
+
+  const { data: legacyReturns } = await supabase
+    .from('returns')
+    .select('quantity')
+    .eq('seller_id', sellerId)
+    .eq('product_id', productId)
+  for (const lr of legacyReturns || []) returned += lr.quantity
+
+  return delivered - returned
+}
+
+async function getSellerOutstandingBalance(supabase: any, sellerId: string): Promise<number> {
+  const { data: remisiones } = await supabase
+    .from('remisiones')
+    .select('type, delivery_type, total_amount')
+    .eq('seller_id', sellerId)
+
+  let pending = 0
+  let returned = 0
+  let paid = 0
+  for (const r of remisiones || []) {
+    if (r.type === 'sale' && r.delivery_type === 'pending') pending += r.total_amount || 0
+    else if (r.type === 'return') returned += Math.abs(r.total_amount || 0)
+    else if (r.type === 'payment') paid += r.total_amount || 0
+  }
+
+  const [{ data: legacyReturns }, { data: legacyPayments }] = await Promise.all([
+    supabase.from('returns').select('quantity, products(price)').eq('seller_id', sellerId),
+    supabase.from('payments').select('amount').eq('seller_id', sellerId),
+  ])
+  for (const ret of legacyReturns || []) returned += (ret.quantity || 0) * (ret.products?.price || 0)
+  for (const p of legacyPayments || []) paid += p.amount || 0
+
+  return pending - returned - paid
+}
+
+function fmtMoney(n: number) {
+  return '$' + n.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
 }

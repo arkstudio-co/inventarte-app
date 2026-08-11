@@ -126,20 +126,19 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     const endDate: string | null = ed ? ed.toISOString() : null
 
     const wf = (q: any, col: string) => startDate ? q.gte(col, startDate).lt(col, endDate) : q
-    const [incomeRes, expensesRes, arRes, apRes, suppliersRes, incomeTotalRes, expenseTotalRes, arTotalRes, paymentsRes, productsRes, balanceIncomeRes, balancePaymentsRes, balanceExpensesRes, adminExpensesRes, balanceAdminExpensesRes, balanceApTotalRes, otherIncomeRes, balanceOtherIncomeRes] = await Promise.all([
-      wf(supabase.from('stock_withdrawals').select('*, products(*)').eq('delivery_type', 'paid'), 'withdrawal_date').order('withdrawal_date', { ascending: false }).limit(10),
+    const [incomeRes, expensesRes, arRes, apRes, suppliersRes, incomeTotalRes, expenseTotalRes, paymentsRemRes, productsRes, balanceIncomeRes, balancePaymentsRes, balanceExpensesRes, adminExpensesRes, balanceAdminExpensesRes, balanceApTotalRes, otherIncomeRes, balanceOtherIncomeRes, paymentsLegacyPeriodRes, paymentsLegacyAllRes, allRemisionesRes, returnsLegacyRes] = await Promise.all([
+      wf(supabase.from('remisiones').select('*, sellers(*)').eq('type', 'sale').eq('delivery_type', 'paid'), 'created_at').order('created_at', { ascending: false }).limit(10),
       wf(supabase.from('stock_entries').select('*, products(*)'), 'created_at').order('created_at', { ascending: false }).limit(10),
-      supabase.from('stock_withdrawals').select('*, products(*), sellers(*)').eq('delivery_type', 'pending').gt('pending_amount', 0).order('withdrawal_date', { ascending: false }).limit(10),
+      supabase.from('remisiones').select('*, sellers(*), remision_items(*)').eq('type', 'sale').eq('delivery_type', 'pending').order('created_at', { ascending: false }),
       wf(supabase.from('accounts_payable').select('*, suppliers(*)').eq('is_paid', false), 'created_at').order('created_at', { ascending: false }),
       supabase.from('suppliers').select('*').order('name'),
-      wf(supabase.from('stock_withdrawals').select('quantity, products!inner(price)').eq('delivery_type', 'paid'), 'withdrawal_date'),
-      wf(supabase.from('stock_entries').select('quantity, products!inner(cost)').eq('payment_status', 'paid'), 'created_at'),
-      supabase.from('stock_withdrawals').select('pending_amount').eq('delivery_type', 'pending').gt('pending_amount', 0),
-      wf(supabase.from('payments').select('amount'), 'created_at'),
+      wf(supabase.from('remisiones').select('total_amount').eq('type', 'sale').eq('delivery_type', 'paid'), 'created_at'),
+      wf(supabase.from('stock_entries').select('quantity, unit_cost').eq('payment_status', 'paid'), 'created_at'),
+      wf(supabase.from('remisiones').select('total_amount').eq('type', 'payment'), 'created_at'),
       supabase.from('products').select('cost, stock'),
-      supabase.from('stock_withdrawals').select('quantity, products!inner(price)').eq('delivery_type', 'paid'),
-      supabase.from('payments').select('amount'),
-      supabase.from('stock_entries').select('quantity, products!inner(cost)'),
+      supabase.from('remisiones').select('total_amount').eq('type', 'sale').eq('delivery_type', 'paid'),
+      supabase.from('remisiones').select('total_amount').eq('type', 'payment'),
+      supabase.from('stock_entries').select('quantity, unit_cost'),
       startDate
         ? supabase.from('administrative_expenses').select('*').or(`and(expense_date.gte.${startDate},expense_date.lt.${endDate},type.eq.variable),and(type.eq.fixed,expense_date.lte.${endDate})`).order('expense_date', { ascending: false })
         : supabase.from('administrative_expenses').select('*').order('expense_date', { ascending: false }),
@@ -147,20 +146,22 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       supabase.from('accounts_payable').select('amount').eq('is_paid', false),
       wf(supabase.from('other_income').select('*'), 'income_date').order('income_date', { ascending: false }),
       supabase.from('other_income').select('amount'),
+      wf(supabase.from('payments').select('amount'), 'created_at'),
+      supabase.from('payments').select('amount'),
+      supabase.from('remisiones').select('seller_id, total_amount, type, delivery_type'),
+      supabase.from('returns').select('seller_id, quantity, products(price)'),
     ])
     if (incomeRes.data) setIncome(incomeRes.data)
     if (expensesRes.data) setExpenses(expensesRes.data)
-    if (arRes.data) setAr(arRes.data)
     if (apRes.data) setAp(apRes.data as AccountPayable[])
     if (suppliersRes.data) setSuppliers(suppliersRes.data)
-    if (incomeTotalRes.data) setIncomeTotals(incomeTotalRes.data.reduce((s: number, i: any) => s + (i.quantity * (i.products?.price || 0)), 0))
-    if (expenseTotalRes.data) setExpenseTotals(expenseTotalRes.data.reduce((s: number, e: any) => s + (e.quantity * (e.products?.cost || 0)), 0))
-    if (arTotalRes.data) setArTotals(arTotalRes.data.reduce((s: number, a: any) => s + (a.pending_amount || 0), 0))
-    if (paymentsRes.data) setPaymentsTotal(paymentsRes.data.reduce((s: number, p: any) => s + p.amount, 0))
+    if (incomeTotalRes.data) setIncomeTotals(incomeTotalRes.data.reduce((s: number, i: any) => s + (i.total_amount || 0), 0))
+    if (expenseTotalRes.data) setExpenseTotals(expenseTotalRes.data.reduce((s: number, e: any) => s + (e.quantity * (e.unit_cost || 0)), 0))
+    setPaymentsTotal((paymentsRemRes.data || []).reduce((s: number, p: any) => s + (p.total_amount || 0), 0) + (paymentsLegacyPeriodRes.data || []).reduce((s: number, p: any) => s + p.amount, 0))
     if (productsRes.data) setInventoryValue(productsRes.data.reduce((s: number, p: any) => s + ((p.cost || 0) * p.stock), 0))
-    if (balanceIncomeRes.data) setBalanceIncome(balanceIncomeRes.data.reduce((s: number, i: any) => s + (i.quantity * (i.products?.price || 0)), 0))
-    if (balancePaymentsRes.data) setBalancePayments(balancePaymentsRes.data.reduce((s: number, p: any) => s + p.amount, 0))
-    if (balanceExpensesRes.data) setBalanceExpenses(balanceExpensesRes.data.reduce((s: number, e: any) => s + (e.quantity * (e.products?.cost || 0)), 0))
+    if (balanceIncomeRes.data) setBalanceIncome(balanceIncomeRes.data.reduce((s: number, i: any) => s + (i.total_amount || 0), 0))
+    setBalancePayments((balancePaymentsRes.data || []).reduce((s: number, p: any) => s + (p.total_amount || 0), 0) + (paymentsLegacyAllRes.data || []).reduce((s: number, p: any) => s + p.amount, 0))
+    if (balanceExpensesRes.data) setBalanceExpenses(balanceExpensesRes.data.reduce((s: number, e: any) => s + (e.quantity * (e.unit_cost || 0)), 0))
     if (adminExpensesRes.data) setAdminExpenses(adminExpensesRes.data as AdministrativeExpense[])
     if (adminExpensesRes.data) setAdminExpenseTotals(adminExpensesRes.data.reduce((s: number, o: any) => s + o.amount, 0))
     if (balanceAdminExpensesRes.data) setBalanceAdminExpenses(balanceAdminExpensesRes.data.reduce((s: number, o: any) => s + o.amount, 0))
@@ -168,6 +169,55 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     if (otherIncomeRes.data) setOtherIncome(otherIncomeRes.data as OtherIncome[])
     if (otherIncomeRes.data) setOtherIncomeTotals(otherIncomeRes.data.reduce((s: number, o: any) => s + o.amount, 0))
     if (balanceOtherIncomeRes.data) setBalanceOtherIncome(balanceOtherIncomeRes.data.reduce((s: number, o: any) => s + o.amount, 0))
+
+    // Cuentas por cobrar: ventas pendientes menos devoluciones/abonos, por vendedor
+    const pendingSum = new Map<string, number>()
+    const offsets = new Map<string, { returns: number; payments: number }>()
+    for (const r of (allRemisionesRes.data || [])) {
+      if (r.type === 'sale' && r.delivery_type === 'pending') {
+        pendingSum.set(r.seller_id, (pendingSum.get(r.seller_id) || 0) + (r.total_amount || 0))
+      } else if (r.type === 'return') {
+        const o = offsets.get(r.seller_id) || { returns: 0, payments: 0 }
+        o.returns += Math.abs(r.total_amount || 0)
+        offsets.set(r.seller_id, o)
+      } else if (r.type === 'payment') {
+        const o = offsets.get(r.seller_id) || { returns: 0, payments: 0 }
+        o.payments += (r.total_amount || 0)
+        offsets.set(r.seller_id, o)
+      }
+    }
+    for (const ret of (returnsLegacyRes.data || [])) {
+      const o = offsets.get(ret.seller_id) || { returns: 0, payments: 0 }
+      o.returns += (ret.quantity || 0) * ((ret as any).products?.price || 0)
+      offsets.set(ret.seller_id, o)
+    }
+    let arTotalsValue = 0
+    for (const sid of new Set([...pendingSum.keys(), ...offsets.keys()])) {
+      const net = (pendingSum.get(sid) || 0) - (offsets.get(sid)?.returns || 0) - (offsets.get(sid)?.payments || 0)
+      if (net > 0) arTotalsValue += net
+    }
+    setArTotals(arTotalsValue)
+
+    const arGroups: any[] = []
+    const bySeller = new Map<string, { seller: any; items: any[] }>()
+    for (const r of (arRes.data || [])) {
+      const sid = r.seller_id
+      if (!bySeller.has(sid)) bySeller.set(sid, { seller: r.sellers || null, items: [] })
+      bySeller.get(sid)!.items.push(r)
+    }
+    for (const [sid, g] of bySeller) {
+      const net = (pendingSum.get(sid) || 0) - (offsets.get(sid)?.returns || 0) - (offsets.get(sid)?.payments || 0)
+      if (net > 0) {
+        arGroups.push({
+          seller: g.seller,
+          items: g.items,
+          returnsTotal: offsets.get(sid)?.returns || 0,
+          paymentsTotal: offsets.get(sid)?.payments || 0,
+          netDue: net,
+        })
+      }
+    }
+    setAr(arGroups)
   }
 
   useEffect(() => { fetchAll() }, [filter])
@@ -184,7 +234,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const apTotal = ap.reduce((sum, a) => sum + a.amount, 0)
   const [apShowAll, setApShowAll] = useState(false)
   const netArTotals = arTotals
-  const gastosTotal = expenseTotals + adminExpenseTotals + apTotal
+  const gastosTotal = expenseTotals + variableExpenseTotals + paidFixedExpenseTotals + apTotal
   const balance = balanceIncome + balancePayments + balanceOtherIncome - balanceExpenses - balanceAdminExpenses - balanceApTotal
 
   const handleCreateAp = async (e: React.FormEvent) => {

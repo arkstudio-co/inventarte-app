@@ -448,7 +448,7 @@ export default function InventoryDashboardPage() {
         isOpen={showEntryModal}
         onClose={() => setShowEntryModal(false)}
         onSuccess={fetchData}
-        products={products.map((p) => ({ id: p.id, name: p.name, sku: p.sku, stock: p.stock }))}
+        products={products.map((p) => ({ id: p.id, name: p.name, sku: p.sku, stock: p.stock, cost: p.cost }))}
       />
 
       {/* Withdrawal Modal */}

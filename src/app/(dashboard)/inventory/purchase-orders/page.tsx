@@ -103,7 +103,7 @@ export default function PurchaseOrdersPage() {
       if (pending <= 0) continue
 
       const { error: entryErr } = await supabase.from('stock_entries').insert({
-        product_id: item.product_id, quantity: pending, company_id: companyId,
+        product_id: item.product_id, quantity: pending, unit_cost: item.unit_cost ?? 0, company_id: companyId,
         payment_status: 'pending', observations: `OC ${order.order_number}: ${item.product_name}`,
         created_by: user.id,
       })

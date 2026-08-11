@@ -40,10 +40,8 @@ export default function GastosPage() {
         </div>
         <div className="flex items-center justify-between text-sm">
           <span className="text-[var(--ink-secondary)]">Gastos Fijos</span>
-          <span className="font-semibold text-[var(--accent)]">{formatCurrency(fixedExpenseTotals)}</span>
-          {paidFixedExpenseTotals > 0 && (
-            <span className="text-xs text-[var(--success)] ml-1">({formatCurrency(pendingFixedTotals)} pend.)</span>
-          )}
+          <span className="font-semibold text-[var(--accent)]">{formatCurrency(paidFixedExpenseTotals)}</span>
+          <span className="text-xs text-[var(--success)] ml-1">({formatCurrency(pendingFixedTotals)} pend.)</span>
         </div>
         <div className="flex items-center justify-between text-sm">
           <span className="text-[var(--ink-secondary)]">Gastos Variables</span>

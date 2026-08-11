@@ -12,6 +12,7 @@ interface SaleItem {
   id: string
   product_id: string
   quantity: number | ''
+  unit_price: number | ''
 }
 
 interface SaleModalProps {
@@ -31,7 +32,7 @@ export function SaleModal({ isOpen, onClose, onSuccess, products, sellerId }: Sa
 
   const [sellers, setSellers] = useState<Seller[]>([])
   const [selectedSellerId, setSelectedSellerId] = useState(sellerId || '')
-  const [items, setItems] = useState<SaleItem[]>([{ id: nextItemId(), product_id: '', quantity: '' }])
+  const [items, setItems] = useState<SaleItem[]>([{ id: nextItemId(), product_id: '', quantity: '', unit_price: '' }])
   const [deliveryType, setDeliveryType] = useState<'paid' | 'pending'>('pending')
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'transfer'>('cash')
   const [bankAccount, setBankAccount] = useState('')
@@ -49,15 +50,27 @@ export function SaleModal({ isOpen, onClose, onSuccess, products, sellerId }: Sa
     })
   }, [isOpen, sellerId])
 
-  const addItem = () => setItems((prev) => [...prev, { id: nextItemId(), product_id: '', quantity: '' }])
-  const updateItem = (id: string, field: { product_id?: string; quantity?: number | '' }) =>
-    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...field } : i)))
+  const addItem = () => setItems((prev) => [...prev, { id: nextItemId(), product_id: '', quantity: '', unit_price: '' }])
+  const updateItem = (id: string, field: { product_id?: string; quantity?: number | ''; unit_price?: number | '' }) =>
+    setItems((prev) => prev.map((i) => {
+      if (i.id !== id) return i
+      const updated = { ...i, ...field }
+      if (field.product_id !== undefined) {
+        const prod = getProduct(field.product_id)
+        updated.unit_price = prod?.price ?? ''
+      }
+      return updated
+    }))
   const removeItem = (id: string) => setItems((prev) => prev.filter((i) => i.id !== id))
 
   const getProduct = (pid: string) => products.find((p) => p.id === pid)
+  const linePrice = (i: SaleItem) => {
+    if (i.unit_price !== '') return i.unit_price as number
+    return getProduct(i.product_id)?.price || 0
+  }
   const totalValue = items.reduce((s, i) => {
     if (!i.product_id || i.quantity === '') return s
-    return s + (i.quantity as number) * (getProduct(i.product_id)?.price || 0)
+    return s + (i.quantity as number) * linePrice(i)
   }, 0)
   const totalQty = items.reduce((s, i) => {
     if (!i.product_id || i.quantity === '') return s
@@ -65,7 +78,7 @@ export function SaleModal({ isOpen, onClose, onSuccess, products, sellerId }: Sa
   }, 0)
 
   const resetForm = () => {
-    setItems([{ id: nextItemId(), product_id: '', quantity: '' }])
+    setItems([{ id: nextItemId(), product_id: '', quantity: '', unit_price: '' }])
     setDeliveryType('pending')
     setPaymentMethod('cash')
     setBankAccount('')
@@ -79,6 +92,18 @@ export function SaleModal({ isOpen, onClose, onSuccess, products, sellerId }: Sa
     const validItems = items.filter((i) => i.product_id && i.quantity !== '' && (i.quantity as number) > 0)
     if (!selectedSellerId) { setError('Selecciona un vendedor'); return }
     if (validItems.length === 0) { setError('Agrega al menos un producto'); return }
+    for (const item of validItems) {
+      const prod = getProduct(item.product_id)
+      if (!prod) continue
+      if (prod.stock <= 0) {
+        setError(`No hay stock disponible de ${prod.name}`)
+        return
+      }
+      if ((item.quantity as number) > prod.stock) {
+        setError(`Stock insuficiente de ${prod.name}: solo hay ${prod.stock} disponibles`)
+        return
+      }
+    }
     if (deliveryType === 'paid' && paymentMethod === 'transfer' && (!bankAccount.trim() || cardLastFour.length !== 4)) {
       setError('Completa la cuenta bancaria y los últimos 4 dígitos')
       return
@@ -98,7 +123,8 @@ export function SaleModal({ isOpen, onClose, onSuccess, products, sellerId }: Sa
         product_id: i.product_id,
         product_name: getProduct(i.product_id)?.name || '',
         quantity: i.quantity,
-        unit_price: getProduct(i.product_id)?.price || 0,
+        unit_price: linePrice(i),
+        unit_cost: getProduct(i.product_id)?.cost ?? 0,
       })),
     }
 
@@ -168,36 +194,54 @@ export function SaleModal({ isOpen, onClose, onSuccess, products, sellerId }: Sa
             return items.map((item) => {
               const prod = item.product_id ? getProduct(item.product_id) : undefined
               return (
-                <div key={item.id} className="grid grid-cols-[1fr_72px_28px] gap-2 px-3 py-2 items-center border-b border-[var(--border-default)] last:border-b-0">
-                  <select
-                    value={item.product_id}
-                    onChange={(e) => updateItem(item.id, { product_id: e.target.value })}
-                    className="w-full px-2 py-1.5 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors"
-                  >
-                    <option value="">Seleccionar producto</option>
-                    {products
-                      .filter((p) => p.is_active && (p.id === item.product_id || !selectedIds.has(p.id)))
-                      .map((p) => (
-                        <option key={p.id} value={p.id}>{p.name} — {formatCurrency(p.price)} c/u</option>
-                      ))}
-                  </select>
-                  <input
-                    type="number"
-                    min={1}
-                    max={prod?.stock || 1}
-                    value={item.quantity}
-                    onChange={(e) => updateItem(item.id, { quantity: e.target.value === '' ? '' : Number(e.target.value) })}
-                    placeholder="Cant."
-                    className="w-full px-2 py-1.5 text-sm text-center rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeItem(item.id)}
-                    disabled={items.length <= 1}
-                    className="w-7 h-7 flex items-center justify-center text-xs rounded-[var(--radius-sm)] text-[var(--ink-muted)] hover:bg-[var(--danger-light)] hover:text-[var(--danger)] transition-colors disabled:opacity-20 disabled:pointer-events-none cursor-pointer"
-                  >
-                    ✕
-                  </button>
+                <div key={item.id} className="px-3 py-2 border-b border-[var(--border-default)] last:border-b-0">
+                  <div className="grid grid-cols-[1fr_72px_100px_28px] gap-2 items-center">
+                    <select
+                      value={item.product_id}
+                      onChange={(e) => updateItem(item.id, { product_id: e.target.value })}
+                      className="w-full px-2 py-1.5 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+                    >
+                      <option value="">Seleccionar producto</option>
+                      {products
+                        .filter((p) => p.is_active && (p.id === item.product_id || !selectedIds.has(p.id)))
+                        .map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name} — {formatCurrency(p.price)} c/u{p.stock <= 0 ? ' (Sin stock)' : ` — Stock: ${p.stock}`}
+                          </option>
+                        ))}
+                    </select>
+                    <input
+                      type="number"
+                      min={1}
+                      max={prod && prod.stock > 0 ? prod.stock : undefined}
+                      value={item.quantity}
+                      onChange={(e) => updateItem(item.id, { quantity: e.target.value === '' ? '' : Number(e.target.value) })}
+                      placeholder="Cant."
+                      className="w-full px-2 py-1.5 text-sm text-center rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                    <input
+                      type="number"
+                      min={0}
+                      value={item.unit_price}
+                      onChange={(e) => updateItem(item.id, { unit_price: e.target.value === '' ? '' : Number(e.target.value) })}
+                      placeholder="Precio"
+                      className="w-full px-2 py-1.5 text-sm text-center rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeItem(item.id)}
+                      disabled={items.length <= 1}
+                      className="w-7 h-7 flex items-center justify-center text-xs rounded-[var(--radius-sm)] text-[var(--ink-muted)] hover:bg-[var(--danger-light)] hover:text-[var(--danger)] transition-colors disabled:opacity-20 disabled:pointer-events-none cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  {prod && item.quantity !== '' && prod.stock <= 0 && (
+                    <p className="mt-1 text-[11px] text-[var(--danger)]">No hay stock disponible de {prod.name}</p>
+                  )}
+                  {prod && item.quantity !== '' && prod.stock > 0 && (item.quantity as number) > prod.stock && (
+                    <p className="mt-1 text-[11px] text-[var(--danger)]">Stock disponible: {prod.stock}</p>
+                  )}
                 </div>
               )
             })

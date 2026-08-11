@@ -5,6 +5,14 @@ import { SectionCard } from '../SectionCard'
 import { Button } from '@/components/ui/Button'
 import { TrendingUp, Plus, Trash2 } from 'lucide-react'
 
+const CATEGORY_LABELS: Record<string, string> = {
+  donation: 'Donación',
+  sponsorship: 'Patrocinio',
+  service: 'Servicio',
+  interest: 'Interés',
+  other: 'Otro',
+}
+
 export default function IngresosPage() {
   const {
     income, paymentsTotal, otherIncome, incomeTotals, otherIncomeTotals,
@@ -28,9 +36,26 @@ export default function IngresosPage() {
       ) : (
         <div className="space-y-3 text-sm">
           <div className="flex items-center justify-between">
-            <span className="text-[var(--ink-secondary)]">Ventas directas</span>
+            <span className="text-[var(--ink-secondary)]">Ventas de contado</span>
             <span className="font-semibold text-[var(--success)]">{formatCurrency(incomeTotals)}</span>
           </div>
+          {income.length > 0 && (
+            <div className="border-t border-[var(--border-subtle)] pt-2 space-y-2">
+              {income.map((v: any) => (
+                <div key={v.id} className="flex items-center justify-between">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm text-[var(--ink)] truncate">
+                      {v.remision_number}{v.sellers?.name ? ` · ${v.sellers.name}` : ''}
+                    </p>
+                    <p className="text-xs text-[var(--ink-tertiary)]">
+                      {new Date(v.created_at).toLocaleDateString('es-CO')}
+                    </p>
+                  </div>
+                  <span className="text-sm font-semibold text-[var(--success)] shrink-0 ml-2">{formatCurrency(v.total_amount)}</span>
+                </div>
+              ))}
+            </div>
+          )}
           <div className="flex items-center justify-between">
             <span className="text-[var(--ink-secondary)]">Abonos de vendedores</span>
             <span className="font-semibold text-[var(--success)]">{formatCurrency(paymentsTotal)}</span>
@@ -48,7 +73,7 @@ export default function IngresosPage() {
                       <div className="min-w-0 flex-1">
                         <p className="text-sm text-[var(--ink)] truncate">{o.description}</p>
                         <p className="text-xs text-[var(--ink-tertiary)]">
-                          {o.category} &middot; {new Date(o.income_date).toLocaleDateString('es-CO')}
+                          {CATEGORY_LABELS[o.category] || o.category} &middot; {new Date(o.income_date).toLocaleDateString('es-CO')}
                         </p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0 ml-2">
@@ -71,24 +96,36 @@ export default function IngresosPage() {
             <span className="text-[var(--ink)]">Total Ingresos</span>
             <span className="text-[var(--success)]">{formatCurrency(incomeTotals + paymentsTotal + otherIncomeTotals)}</span>
           </div>
-          {incomeTotals > 0 && paymentsTotal > 0 && (
-            <div className="space-y-1.5 pt-1">
-              <div className="flex h-2 rounded-full bg-[var(--surface-2)] overflow-hidden">
-                <div
-                  className="bg-[var(--success)] rounded-l-full transition-all"
-                  style={{ width: `${(incomeTotals / (incomeTotals + paymentsTotal)) * 100}%` }}
-                />
-                <div
-                  className="bg-[var(--accent)] rounded-r-full transition-all"
-                  style={{ width: `${(paymentsTotal / (incomeTotals + paymentsTotal)) * 100}%` }}
-                />
+          {(() => {
+            const totalIngresos = incomeTotals + paymentsTotal + otherIncomeTotals
+            if (totalIngresos <= 0) return null
+            const ventasPct = (incomeTotals / totalIngresos) * 100
+            const abonosPct = (paymentsTotal / totalIngresos) * 100
+            const otrosPct = (otherIncomeTotals / totalIngresos) * 100
+            const segments = [
+              { pct: ventasPct, cls: 'bg-[var(--success)]' },
+              { pct: abonosPct, cls: 'bg-[var(--accent)]' },
+              { pct: otrosPct, cls: 'bg-[var(--warning)]' },
+            ].filter((s) => s.pct > 0)
+            return (
+              <div className="space-y-1.5 pt-1">
+                <div className="flex h-2 rounded-full bg-[var(--surface-2)] overflow-hidden">
+                  {segments.map((s, i) => (
+                    <div
+                      key={s.cls}
+                      className={`${s.cls} transition-all ${i === 0 ? 'rounded-l-full' : ''} ${i === segments.length - 1 ? 'rounded-r-full' : ''}`}
+                      style={{ width: `${s.pct}%` }}
+                    />
+                  ))}
+                </div>
+                <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-[var(--ink-tertiary)]">
+                  {ventasPct > 0 && <span>Ventas {ventasPct.toFixed(0)}%</span>}
+                  {abonosPct > 0 && <span>Abonos {abonosPct.toFixed(0)}%</span>}
+                  {otrosPct > 0 && <span>Otros Ingresos {otrosPct.toFixed(0)}%</span>}
+                </div>
               </div>
-              <div className="flex justify-between text-[10px] text-[var(--ink-tertiary)]">
-                <span>Ventas directas {((incomeTotals / (incomeTotals + paymentsTotal)) * 100).toFixed(0)}%</span>
-                <span>{((paymentsTotal / (incomeTotals + paymentsTotal)) * 100).toFixed(0)}% Abonos</span>
-              </div>
-            </div>
-          )}
+            )
+          })()}
         </div>
       )}
     </SectionCard>

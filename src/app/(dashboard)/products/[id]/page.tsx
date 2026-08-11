@@ -44,6 +44,7 @@ export default function ProductDetailPage() {
     await supabase.from('stock_entries').insert({
       product_id: params.id,
       quantity: qty,
+      unit_cost: product?.cost || 0,
       payment_status: 'pending',
       observations: 'Añadido desde edición',
       company_id: companyId,
@@ -351,6 +352,7 @@ export default function ProductDetailPage() {
           await supabase.from('stock_entries').insert({
             product_id: product.id,
             quantity: qty,
+            unit_cost: product.cost || 0,
             payment_status: entryPaymentStatus,
             observations: entryObservations || null,
             company_id: companyId,

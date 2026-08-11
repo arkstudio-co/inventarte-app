@@ -35,6 +35,8 @@ interface Movement {
   productSku: string
   type: 'entry' | 'withdrawal'
   quantity: number
+  unitCost: number
+  unitPrice: number
   value: number
   balance: number
   reference: string
@@ -47,6 +49,18 @@ function formatCurrency(n: number) {
   return '$' + n.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
 }
 
+function documentTypeBadge(dt: string) {
+  switch (dt) {
+    case 'Venta de contado': return 'bg-[var(--success)]/10 text-[var(--success)]'
+    case 'Venta a crédito': return 'bg-[var(--warning)]/10 text-[var(--warning)]'
+    case 'Devolución': return 'bg-[var(--accent)]/10 text-[var(--accent)]'
+    case 'Compra': return 'bg-[var(--success)]/10 text-[var(--success)]'
+    case 'Retiro':
+    case 'Ajuste':
+    default: return 'bg-[var(--ink-tertiary)]/10 text-[var(--ink-tertiary)]'
+  }
+}
+
 export default function InventoryMovementsPage() {
   const router = useRouter()
   const supabase = createClient()
@@ -57,6 +71,7 @@ export default function InventoryMovementsPage() {
   const [error, setError] = useState('')
 
   const [searchTerm, setSearchTerm] = useState('')
+  const [typeFilter, setTypeFilter] = useState('all')
   const [filter, setFilter] = useState<DateFilterState>({
     mode: 'month',
     month: new Date().getMonth() + 1,
@@ -79,7 +94,7 @@ export default function InventoryMovementsPage() {
     const [productsRes, entriesRes, withdrawalsRes, adjustmentsRes, remisionesRes] = await Promise.all([
       supabase.from('products').select('id, name, sku, stock, price, cost, is_active').eq('is_active', true).order('name'),
       supabase.from('stock_entries').select('*, products!inner(name, sku, cost)').order('created_at', { ascending: false }),
-      supabase.from('stock_withdrawals').select('*, products!inner(name, sku, price)').order('withdrawal_date', { ascending: false }),
+      supabase.from('stock_withdrawals').select('*, products!inner(name, sku, cost)').order('withdrawal_date', { ascending: false }),
       supabase.from('stock_adjustments').select('*, products!inner(name, sku, cost)').order('created_at', { ascending: false }),
       supabase.from('remisiones').select('*, remision_items(*), sellers(name)').order('created_at', { ascending: false }),
     ])
@@ -92,8 +107,8 @@ export default function InventoryMovementsPage() {
     const adjustmentsList = (adjustmentsRes.data || []) as any[]
     const remisionesList = (remisionesRes.data || []) as any[]
 
-    const productMap = new Map<string, { name: string; sku: string }>()
-    for (const p of productList) productMap.set(p.id, { name: p.name, sku: p.sku })
+    const productMap = new Map<string, { name: string; sku: string; cost: number; price: number }>()
+    for (const p of productList) productMap.set(p.id, { name: p.name, sku: p.sku, cost: p.cost || 0, price: p.price || 0 })
 
     const mergedMovements: Movement[] = []
 
@@ -103,7 +118,10 @@ export default function InventoryMovementsPage() {
       mergedMovements.push({
         id: `entry-${e.id}`, date: new Date(e.created_at), dateStr: e.created_at,
         productId: e.product_id, productName: prod.name, productSku: prod.sku,
-        type: 'entry', quantity: e.quantity, value: e.quantity * (e.products?.cost || 0), balance: 0,
+        type: 'entry', quantity: e.quantity,
+        unitCost: e.unit_cost || e.products?.cost || 0,
+        unitPrice: prod.price || 0,
+        value: e.quantity * (e.unit_cost || e.products?.cost || 0), balance: 0,
         reference: 'Proveedor', observations: e.observations,
         documentType: 'Compra', paymentStatus: e.payment_status,
       })
@@ -115,9 +133,12 @@ export default function InventoryMovementsPage() {
       mergedMovements.push({
         id: `withdrawal-${w.id}`, date: new Date(w.withdrawal_date), dateStr: w.withdrawal_date,
         productId: w.product_id, productName: prod.name, productSku: prod.sku,
-        type: 'withdrawal', quantity: w.quantity, value: w.quantity * (w.products?.price || 0), balance: 0,
+        type: 'withdrawal', quantity: w.quantity,
+        unitCost: w.unit_cost || w.products?.cost || 0,
+        unitPrice: w.delivery_type === 'paid' ? prod.price || 0 : 0,
+        value: w.quantity * (w.unit_cost || w.products?.cost || 0), balance: 0,
         reference: w.person_name, observations: w.observations,
-        documentType: w.delivery_type === 'paid' ? 'Venta' : 'Retiro', paymentStatus: w.delivery_type,
+        documentType: 'Retiro', paymentStatus: w.delivery_type,
       })
     }
 
@@ -130,6 +151,8 @@ export default function InventoryMovementsPage() {
         productId: a.product_id, productName: prod.name, productSku: prod.sku,
         type: a.adjustment_type === 'negative' ? 'withdrawal' : 'entry',
         quantity: qty,
+        unitCost: a.products?.cost || 0,
+        unitPrice: 0,
         value: qty * (a.products?.cost || 0),
         balance: 0,
         reference: 'Ajuste',
@@ -144,19 +167,23 @@ export default function InventoryMovementsPage() {
       const itemsList = r.remision_items || []
       if (!itemsList.length) continue
       for (const item of itemsList) {
-        const prod = productMap.get(item.product_id) || { name: item.product_name || 'Producto', sku: '' }
+        const prod = productMap.get(item.product_id) || { name: item.product_name || 'Producto', sku: '', cost: 0, price: 0 }
         const qty = item.quantity
+        const unitPrice = item.unit_price || 0
+        const unitCost = item.unit_cost ?? (prod.cost || 0)
         mergedMovements.push({
           id: `remision-${r.id}-${item.id}`,
           date: new Date(r.created_at), dateStr: r.created_at,
           productId: item.product_id, productName: prod.name, productSku: prod.sku,
           type: qty > 0 ? 'withdrawal' : 'entry',
           quantity: Math.abs(qty),
-          value: Math.abs(item.subtotal ?? qty * (item.unit_price || 0)),
+          unitCost,
+          unitPrice,
+          value: Math.abs(qty * unitCost),
           balance: 0,
           reference: sellerName || 'Venta',
           observations: r.notes ? `REM-${r.remision_number} — ${r.notes}` : `REM-${r.remision_number}`,
-          documentType: 'Venta',
+          documentType: qty > 0 ? (r.delivery_type === 'paid' ? 'Venta de contado' : 'Venta a crédito') : 'Devolución',
           paymentStatus: r.delivery_type || null,
         })
       }
@@ -204,11 +231,12 @@ export default function InventoryMovementsPage() {
             !m.productSku.toLowerCase().includes(term) &&
             !m.reference.toLowerCase().includes(term)) return false
       }
+      if (typeFilter !== 'all' && m.documentType !== typeFilter) return false
       if (startDate && new Date(m.dateStr) < startDate) return false
       if (endDate && new Date(m.dateStr) >= endDate) return false
       return true
     })
-  }, [movements, searchTerm, filter])
+  }, [movements, searchTerm, typeFilter, filter])
 
   const stats = useMemo(() => {
     const { startDate, endDate } = computeDateRange(filter)
@@ -226,12 +254,13 @@ export default function InventoryMovementsPage() {
 
   const clearFilters = () => {
     setSearchTerm('')
+    setTypeFilter('all')
     setFilter({ mode: 'month', month: new Date().getMonth() + 1, year: new Date().getFullYear(), customStart: '', customEnd: '' })
   }
 
   const now = new Date()
   const isDefaultDate = filter.mode === 'month' && filter.month === now.getMonth() + 1 && filter.year === now.getFullYear()
-  const hasActiveFilters = searchTerm || !isDefaultDate
+  const hasActiveFilters = searchTerm || typeFilter !== 'all' || !isDefaultDate
 
   if (isLoading) {
     return (
@@ -330,6 +359,19 @@ export default function InventoryMovementsPage() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            className="px-3 py-2 text-sm rounded-[var(--radius-sm)] bg-[var(--surface-0)] text-[var(--ink)] border border-[var(--border-default)] focus:outline-none focus:border-[var(--accent)] transition-colors cursor-pointer"
+          >
+            <option value="all">Todos los tipos</option>
+            <option value="Venta de contado">Venta de contado</option>
+            <option value="Venta a crédito">Venta a crédito</option>
+            <option value="Devolución">Devolución</option>
+            <option value="Compra">Compra</option>
+            <option value="Retiro">Retiro</option>
+            <option value="Ajuste">Ajuste</option>
+          </select>
           <DateFilter value={filter} onChange={setFilter} />
         </div>
         {hasActiveFilters && (
@@ -365,14 +407,20 @@ export default function InventoryMovementsPage() {
                     <div className="flex items-center gap-1.5"><Package size={12} /> Producto</div>
                   </th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-[var(--ink-tertiary)] uppercase tracking-wider w-[100px]">Tipo</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-[var(--ink-tertiary)] uppercase tracking-wider w-[80px]">
-                    <TrendingUp size={12} className="inline mr-1" />IN
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-[var(--ink-tertiary)] uppercase tracking-wider w-[100px]">
+                    <TrendingUp size={12} className="inline mr-1" />Entrada
                   </th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-[var(--ink-tertiary)] uppercase tracking-wider w-[80px]">
-                    <TrendingDown size={12} className="inline mr-1" />OUT
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-[var(--ink-tertiary)] uppercase tracking-wider w-[100px]">
+                    <TrendingDown size={12} className="inline mr-1" />Salida
                   </th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-[var(--ink-tertiary)] uppercase tracking-wider w-[80px]">
                     <ArrowUpDown size={12} className="inline mr-1" />Saldo
+                  </th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-[var(--ink-tertiary)] uppercase tracking-wider w-[90px]">
+                    Costo
+                  </th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-[var(--ink-tertiary)] uppercase tracking-wider w-[90px]">
+                    Precio
                   </th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-[var(--ink-tertiary)] uppercase tracking-wider w-[100px]">
                     Valor
@@ -406,7 +454,7 @@ export default function InventoryMovementsPage() {
                       <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold ${m.type === 'entry' ? 'bg-[var(--success)]/10 text-[var(--success)]' : 'bg-[var(--danger)]/10 text-[var(--danger)]'}`}>
                         {m.type === 'entry' ? <><TrendingUp size={10} /> Entrada</> : <><TrendingDown size={10} /> Salida</>}
                       </span>
-                      <span className="text-[11px] text-[var(--ink-muted)] ml-1.5">{m.documentType}</span>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold ml-1.5 ${documentTypeBadge(m.documentType)}`}>{m.documentType}</span>
                     </td>
                     <td className="px-4 py-3 text-right">
                       {m.type === 'entry' ? <span className="text-sm font-semibold text-[var(--success)]">+{m.quantity}</span> : <span className="text-sm text-[var(--ink-muted)]">&mdash;</span>}
@@ -416,6 +464,12 @@ export default function InventoryMovementsPage() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <span className={`text-sm font-bold font-mono ${m.balance <= 0 ? 'text-[var(--danger)]' : 'text-[var(--ink)]'}`}>{m.balance}</span>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <span className="text-xs text-[var(--ink-muted)] font-mono">{m.unitCost > 0 ? formatCurrency(m.unitCost) : '—'}</span>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <span className="text-xs text-[var(--ink-muted)] font-mono">{m.unitPrice > 0 ? formatCurrency(m.unitPrice) : '—'}</span>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <span className={`text-sm font-semibold ${m.type === 'entry' ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>

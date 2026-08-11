@@ -96,7 +96,7 @@ export default function InventoryReportsPage() {
     const totalWithdrawals = periodWithdrawals.reduce((s: number, w: any) => s + w.quantity, 0)
     const lowStock = products.filter((p: any) => p.stock <= p.min_stock && p.stock > 0).length
     const outStock = products.filter((p: any) => p.stock === 0).length
-    const entryCost = periodEntries.reduce((s: number, e: any) => s + (e.quantity * (products.find((p: any) => p.id === e.product_id)?.cost || 0)), 0)
+    const entryCost = periodEntries.reduce((s: number, e: any) => s + (e.quantity * (e.unit_cost || 0)), 0)
     const withdrawalRevenue = periodWithdrawals.reduce((s: number, w: any) => s + (w.quantity * (products.find((p: any) => p.id === w.product_id)?.price || 0)), 0)
     return { totalVal, totalSell, totalEntries, totalWithdrawals, lowStock, outStock, entryCost, withdrawalRevenue }
   }, [products, periodEntries, periodWithdrawals])
